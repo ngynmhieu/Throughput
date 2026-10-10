@@ -60,8 +60,11 @@ Instructions for AI agents working on **Throughput**. Read this first, then the 
 
 ## Planned code layout (when code starts)
 
+All code lives in the Unity project (`Unity/Assets/Sim`, `Unity/Assets/Game`), created by Unity 6000.3.10f1, never by hand. See [docs/architecture/project-structure.md](docs/architecture/project-structure.md).
+
+
 | Assembly | Contains | May reference |
 |---|---|---|
 | `Throughput.Sim` | Level, Plan, layout compiler, simulation core, timeline, results | Nothing from Unity |
-| `Throughput.Sim.Tests` | Unit tests, Erlang C/A validation, determinism and balance tests | `Throughput.Sim` |
+| `Throughput.Sim.Tests` | EditMode tests: unit, Erlang C/A validation, determinism and balance | `Throughput.Sim` |
 | `Throughput.Game` | Unity views, playback, input, plan editor, UI | `Throughput.Sim` |
