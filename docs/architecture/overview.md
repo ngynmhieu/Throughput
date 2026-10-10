@@ -97,11 +97,11 @@ run seed ─► │  Simulation core    │  event list · behaviour modules
 
 | Assembly | Contains | References |
 |---|---|---|
-| `Throughput.Sim` | Level definition, Plan, Layout compiler, Simulation core, Timeline, Results | Nothing from Unity |
-| `Throughput.Sim.Tests` | Unit tests; Erlang C/A validation tests; "same seed + actions = same timeline" tests; many-seed balance tests | `Throughput.Sim` |
-| `Throughput.Game` | Everything Unity: views, playback, input, plan editor, UI | `Throughput.Sim` |
+| `Throughput.Core` | Level definition, Plan, Layout compiler, Simulation core, Timeline, Results | Nothing from Unity |
+| `Throughput.Core.Tests` | Unit tests; Erlang C/A validation tests; "same seed + actions = same timeline" tests; many-seed balance tests | `Throughput.Core` |
+| `Throughput.Game` | Everything Unity: views, playback, input, plan editor, UI | `Throughput.Core` |
 
-**Rule:** `Throughput.Sim` never references Unity. The assembly definitions enforce this, so the simulation stays testable without opening Unity.
+**Rule:** `Throughput.Core` never references Unity. The assembly definitions enforce this, so the logic stays testable without opening Unity.
 
 ---
 

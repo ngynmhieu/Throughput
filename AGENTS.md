@@ -24,6 +24,7 @@ Instructions for AI agents working on **Throughput**. Read this first, then the 
 | [docs/game-design/style.md](docs/game-design/style.md) | Visual style: two views, camera, colour, characters, UI, motion |
 | [Throughput Design System](https://claude.ai/artifact/Ux7qp2fzRbByeqNN4DHrMH) | Exact colours, sizes, type, UI components (private claude.ai artifact) |
 | [docs/architecture/](docs/architecture/) | Code architecture A1–A4, simulation core, viewer and playback |
+| [Unity/Docs/best-practices.md](Unity/Docs/best-practices.md) | Unity best practices (folders, naming, .meta, git, asmdefs, C# style) and how Throughput follows them |
 | `docs/superpowers/specs/` | Approved specs (one per sub-project) |
 | [docs/throughput-brainstorm.md](docs/throughput-brainstorm.md) | The **original** idea notes. Several parts are superseded by the decisions; the decision docs win. |
 
@@ -32,7 +33,7 @@ Instructions for AI agents working on **Throughput**. Read this first, then the 
 - **Plan → Manage (D4):** layout is frozen during a run. Live manager actions only: routing, open/close lane, move staff, lane rules, signs. **1× speed only**, with pause. Scrubbable replay after the run.
 - **No result preview (D11).** **Random but fair events (D12):** a fixed event deck per level, random timing per attempt.
 - **Simulation:** discrete-event (event list), an **abstract queueing network** (not 3D space), **simulate first then replay**, **re-simulate from now** on manager actions.
-- **`Throughput.Sim` never references Unity.** It must stay plain C#, testable headless.
+- **`Throughput.Core` never references Unity.** It must stay plain C#, testable headless.
 - **Determinism:** run seed + plan + timed manager actions must always produce the same timeline. Use separate random streams per source. Never use frame time or real time in the simulation.
 - **Pillars:** P1 every fix has a cost · P2 the cause is always visible · P3 fair, not lucky · P4 calm, not frantic.
 - **Visuals:** green/yellow/red are reserved for status and always paired with ● ▲ ■. Accent is belt blue. Passengers are told apart from above (hats, hair, bags), never by status colours.
@@ -54,17 +55,17 @@ Instructions for AI agents working on **Throughput**. Read this first, then the 
 - **Scope:** ask "can we ship without it?" before adding anything. Prefer adding a module over changing the core.
 - **Git:**
   - Commit only when the user asks.
-  - Work on a branch, never directly on `main`.
+  - Solo project: commit and push directly to `main`. Create a branch only when the user asks for one.
   - Short, clear commit messages.
 - **Environment:** Windows; Git Bash and PowerShell are both available. Unity 6 LTS + C# when code starts.
 
 ## Planned code layout (when code starts)
 
-All code lives in the Unity project (`Unity/Assets/Sim`, `Unity/Assets/Game`), created by Unity 6000.3.26f1, never by hand. See [docs/architecture/project-structure.md](docs/architecture/project-structure.md).
+All code lives in the Unity project (`Unity/Assets/Core`, `Unity/Assets/Game`), created by Unity 6000.3.26f1, never by hand. See [docs/architecture/project-structure.md](docs/architecture/project-structure.md).
 
 
 | Assembly | Contains | May reference |
 |---|---|---|
-| `Throughput.Sim` | Level, Plan, layout compiler, simulation core, timeline, results | Nothing from Unity |
-| `Throughput.Sim.Tests` | EditMode tests: unit, Erlang C/A validation, determinism and balance | `Throughput.Sim` |
-| `Throughput.Game` | Unity views, playback, input, plan editor, UI | `Throughput.Sim` |
+| `Throughput.Core` | Level, Plan, layout compiler, simulation core, timeline, results | Nothing from Unity |
+| `Throughput.Core.Tests` | EditMode tests: unit, Erlang C/A validation, determinism and balance | `Throughput.Core` |
+| `Throughput.Game` | Unity views, playback, input, plan editor, UI | `Throughput.Core` |

@@ -1,6 +1,6 @@
 {
-    "name": "Throughput.Sim",
-    "rootNamespace": "Throughput.Sim",
+    "name": "Throughput.Core",
+    "rootNamespace": "Throughput.Core",
     "references": [],
     "includePlatforms": [],
     "excludePlatforms": [],

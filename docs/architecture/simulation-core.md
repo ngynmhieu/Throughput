@@ -1,6 +1,6 @@
 # Architecture: Simulation Core
 
-Inside `Throughput.Sim`: how the compiled network is simulated. Accepted as the starting design on 2026-10-10; expect refinements once real code exists.
+Inside `Throughput.Core`, the `Core/Sim/` part: how the compiled network is simulated. Accepted as the starting design on 2026-10-10; expect refinements once real code exists.
 
 See [overview.md](overview.md) for where this sits (decisions A1–A4).
 

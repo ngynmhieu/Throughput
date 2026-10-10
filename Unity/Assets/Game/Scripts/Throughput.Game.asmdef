@@ -1,7 +1,7 @@
 {
     "name": "Throughput.Game",
     "rootNamespace": "Throughput.Game",
-    "references": ["Throughput.Sim", "Unity.InputSystem"],
+    "references": ["Throughput.Core", "Unity.InputSystem"],
     "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,

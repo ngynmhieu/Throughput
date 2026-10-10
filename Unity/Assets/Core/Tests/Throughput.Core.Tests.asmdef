@@ -1,7 +1,7 @@
 {
-    "name": "Throughput.Sim.Tests",
-    "rootNamespace": "Throughput.Sim.Tests",
-    "references": ["Throughput.Sim", "UnityEngine.TestRunner", "UnityEditor.TestRunner"],
+    "name": "Throughput.Core.Tests",
+    "rootNamespace": "Throughput.Core.Tests",
+    "references": ["Throughput.Core", "UnityEngine.TestRunner", "UnityEditor.TestRunner"],
     "includePlatforms": ["Editor"],
     "excludePlatforms": [],
     "allowUnsafeCode": false,
