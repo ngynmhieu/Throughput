@@ -1,0 +1,556 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Throughput Look Test</title>
+<!-- THROWAWAY PROTOTYPE: a look test for the design system, not game code. -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;700;800&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+/* ---- Tokens copied from the Throughput Design System (draft v1) ---- */
+:root, [data-theme="diorama"] {
+  --surface:#f4efe6; --surface-raised:#fffaf3; --surface-sunken:#e9e1d3; --ink:#2a2522; --ink-muted:#665d55;
+  --line:#ddd1bf; --line-strong:#8a7d6b; --grid:#e3d9c8; --accent:#2b67b0; --on-accent:#ffffff; --accent-soft:#dce8f6;
+  --cost:#8a5a08; --cost-soft:#f6e7c8; --status-good:#2e7d4a; --status-warn:#a87200; --status-bad:#c23b33;
+  --status-good-soft:#dcefe2; --status-bad-soft:#f7dcd9; --brand-blueprint:#13294b; --bp-line:#7cc4ff;
+  --shadow-toy:0 3px 0 #2a252229; --shadow-panel:0 6px 18px #2a25221f;
+}
+[data-theme="blueprint"] {
+  --surface:#13294b; --surface-raised:#1b3864; --surface-sunken:#0e2140; --ink:#eaf3ff; --ink-muted:#a9c1e0;
+  --line:#2f5a92; --line-strong:#7fa3d4; --grid:#23467a; --accent:#7cc4ff; --on-accent:#0d1f3a; --accent-soft:#1f4878;
+  --cost:#ffc65c; --cost-soft:#3d3a2a; --status-good:#6fdc94; --status-warn:#ffd166; --status-bad:#ff8a80;
+  --status-good-soft:#1d4a3a; --status-bad-soft:#4d2630; --brand-blueprint:#2c5288; --bp-line:#7cc4ff;
+  --shadow-toy:none; --shadow-panel:none;
+}
+:root { --space-1:4px; --space-2:8px; --space-3:12px; --space-4:16px; --space-6:24px; --space-8:32px;
+  --radius-sm:6px; --radius-md:10px; --radius-lg:16px; --radius-pill:999px;
+  --font-sans:"Nunito","Varela Round",system-ui,sans-serif; --font-mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+  --duration-quick:120ms; --duration-map:300ms; }
+
+html,body { margin:0; height:100%; overflow:hidden; background:#ddd2bf; font-family:var(--font-sans); color:var(--ink); }
+canvas { display:block; cursor:grab; }
+#labels { position:fixed; inset:0; pointer-events:none; }
+.hud { position:fixed; z-index:5; }
+
+/* components (subset of bundle.css) */
+.tp-wlabel { position:absolute; transform:translate(-50%,-100%); display:inline-flex; align-items:center; gap:var(--space-1); padding:var(--space-1) var(--space-2);
+  border-radius:var(--radius-sm); background:var(--surface-raised); color:var(--ink); border:1.5px solid var(--line-strong); box-shadow:var(--shadow-toy);
+  font:800 12px/14px var(--font-sans); letter-spacing:.04em; text-transform:uppercase; white-space:nowrap; }
+.tp-wlabel .n { font-family:var(--font-mono); font-weight:600; letter-spacing:0; }
+.tp-wlabel .bar { width:36px; height:6px; border-radius:99px; background:var(--surface-sunken); border:1px solid var(--line-strong); position:relative; overflow:hidden; margin-left:2px; }
+.tp-wlabel .bar i { position:absolute; inset:0 auto 0 0; }
+.tp-dot { width:10px; height:10px; display:inline-block; flex:none; }
+.tp-dot.good { background:var(--status-good); border-radius:50%; }
+.tp-dot.warn { width:0; height:0; border-left:6px solid transparent; border-right:6px solid transparent; border-bottom:10px solid var(--status-warn); }
+.tp-dot.bad { background:var(--status-bad); border-radius:2px; }
+.tp-wait { position:absolute; transform:translate(-50%,-100%); display:inline-flex; flex-direction:column; align-items:center; padding:var(--space-1) var(--space-3);
+  border-radius:var(--radius-md); background:var(--surface-raised); border:2px solid var(--ink); box-shadow:var(--shadow-toy); }
+.tp-wait .v { font:600 18px/22px var(--font-mono); }
+.tp-wait .k { font:700 10px/12px var(--font-sans); color:var(--ink-muted); text-transform:uppercase; letter-spacing:.06em; }
+.tp-mood { position:absolute; transform:translate(-50%,-100%); display:grid; place-items:center; width:28px; height:28px; border-radius:99px; background:var(--surface-raised);
+  border:1.5px solid var(--line-strong); box-shadow:var(--shadow-toy); font-size:16px; line-height:1; transition:opacity .4s; }
+.tp-mood.bad { border:2px solid var(--status-bad); }
+
+.panel { background:var(--surface-raised); border:1px solid var(--line); border-radius:var(--radius-lg); box-shadow:var(--shadow-panel); padding:var(--space-3) var(--space-4); }
+#info { top:var(--space-4); left:var(--space-4); max-width:340px; }
+#info .eyebrow { font:800 11px/14px var(--font-sans); letter-spacing:.08em; text-transform:uppercase; color:var(--ink-muted); }
+#info .title { font:800 22px/28px var(--font-sans); }
+#info .goal { font:500 14px/20px var(--font-sans); margin-top:2px; }
+#info .phase { display:inline-block; margin-top:var(--space-2); font:600 11px/14px var(--font-mono); padding:2px 8px; border-radius:var(--radius-sm); background:var(--accent-soft); color:var(--ink); }
+
+.tp-map { top:var(--space-4); right:var(--space-4); display:inline-flex; align-items:center; gap:var(--space-2); padding:var(--space-2) var(--space-3) var(--space-2) var(--space-2);
+  border-radius:var(--radius-md); border:1.5px solid var(--line-strong); background:var(--surface-raised); color:var(--ink); box-shadow:var(--shadow-toy); font:700 13px/18px var(--font-sans); cursor:pointer; }
+.tp-map .ico { width:28px; height:28px; border-radius:var(--radius-sm); background:var(--brand-blueprint); display:grid; place-items:center; }
+.tp-map .ico path { fill:none; stroke:var(--bp-line); stroke-width:1.5; }
+.tp-map kbd { font:600 11px/14px var(--font-mono); padding:1px 6px; border-radius:4px; border:1px solid var(--line-strong); color:var(--ink-muted); }
+
+#tray { bottom:var(--space-4); left:50%; transform:translateX(-50%); display:flex; gap:var(--space-2); padding:var(--space-2); background:var(--surface-sunken); border-radius:var(--radius-lg); border:1px solid var(--line); }
+.tp-tool { display:inline-flex; flex-direction:column; align-items:center; gap:var(--space-1); width:88px; padding:var(--space-2) var(--space-2) var(--space-2);
+  border-radius:var(--radius-md); background:var(--surface-raised); color:var(--ink); border:1.5px solid var(--line-strong); box-shadow:var(--shadow-toy);
+  font:700 13px/18px var(--font-sans); cursor:pointer; transition:transform var(--duration-quick) ease-out; }
+.tp-tool:hover { transform:translateY(-2px); }
+.tp-tool[aria-pressed="true"] { background:var(--accent-soft); border-color:var(--accent); box-shadow:inset 0 0 0 1px var(--accent); }
+.tp-tool svg { width:28px; height:28px; }
+.tp-tool .ink { fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+.tp-tool .belt { stroke:var(--accent); }
+.tp-cost { display:inline-flex; padding:1px var(--space-2); border-radius:var(--radius-sm); background:var(--cost-soft); color:var(--cost); font:600 11px/15px var(--font-mono); white-space:nowrap; }
+
+#runbar { bottom:var(--space-4); right:var(--space-4); display:flex; gap:var(--space-2); align-items:center; }
+.tp-run { display:inline-flex; align-items:center; gap:var(--space-2); padding:var(--space-3) var(--space-6); border:0; border-radius:var(--radius-pill);
+  background:var(--accent); color:var(--on-accent); font:800 16px/20px var(--font-sans); box-shadow:var(--shadow-toy); cursor:pointer; }
+.tp-run.ghost { background:var(--surface-raised); color:var(--ink); box-shadow:inset 0 0 0 2px var(--line-strong), var(--shadow-toy); padding:var(--space-3) var(--space-4); }
+.tp-speed { display:inline-flex; border-radius:var(--radius-pill); overflow:hidden; border:1.5px solid var(--line-strong); background:var(--surface-raised); box-shadow:var(--shadow-toy); }
+.tp-speed button { border:0; background:transparent; color:var(--ink); font:600 13px/18px var(--font-mono); padding:var(--space-2) var(--space-3); cursor:pointer; }
+.tp-speed button[aria-pressed="true"] { background:var(--accent); color:var(--on-accent); }
+button:focus-visible { outline:3px solid var(--accent); outline-offset:2px; }
+
+#help { bottom:var(--space-4); left:var(--space-4); font:500 12px/18px var(--font-sans); color:var(--ink-muted); background:var(--surface-raised); border:1px solid var(--line); border-radius:var(--radius-md); padding:var(--space-2) var(--space-3); }
+#help b { color:var(--ink); }
+
+/* blueprint map overlay */
+#map { position:fixed; inset:0; z-index:4; background:var(--surface); color:var(--ink); display:flex; flex-direction:column; align-items:center; justify-content:center;
+  opacity:0; transform:scale(.97) perspective(900px) rotateX(6deg); pointer-events:none; transition:opacity var(--duration-map) ease-in-out, transform var(--duration-map) ease-in-out; }
+#map.open { opacity:1; transform:none; pointer-events:auto; }
+#map .head { width:min(1100px,92vw); display:flex; justify-content:space-between; align-items:baseline; margin-bottom:var(--space-2); }
+#map .head b { font:800 20px/26px var(--font-sans); }
+#map .head span { font:500 12px/16px var(--font-mono); color:var(--ink-muted); }
+#map svg { width:min(1100px,92vw); height:auto; font-family:var(--font-mono); }
+.bp-grid { stroke:var(--grid); stroke-width:1; }
+.bp-obj { fill:none; stroke:var(--line-strong); stroke-width:1.5; }
+.bp-hot { fill:var(--status-bad-soft); stroke:var(--status-bad); stroke-width:2; }
+.bp-flow { stroke:var(--accent); stroke-width:2; fill:none; }
+.bp-head { fill:var(--accent); }
+.bp-t { fill:var(--ink); font-size:13px; }
+.bp-tm { fill:var(--ink-muted); font-size:11px; }
+.bp-pax { fill:var(--ink-muted); }
+.bp-good { fill:var(--status-good); } .bp-warn { fill:var(--status-warn); } .bp-bad { fill:var(--status-bad); }
+</style>
+</head>
+<body>
+<div id="labels"></div>
+
+<div id="info" class="hud panel">
+  <div class="eyebrow">Look test · Level 1</div>
+  <div class="title">Morning rush</div>
+  <div class="goal">Goal: fewer than 5 missed flights.</div>
+  <div class="phase" id="phase">PLAN</div>
+</div>
+
+<button class="hud tp-map" id="mapBtn"><span class="ico"><svg viewBox="0 0 18 18" width="18" height="18"><path d="M2 4l4.5-2 5 2L16 2v12l-4.5 2-5-2L2 16z M6.5 2v12 M11.5 4v12"/></svg></span><span id="mapTxt">Map</span> <kbd>Tab</kbd></button>
+
+<div id="tray" class="hud">
+  <button class="tp-tool" aria-pressed="true"><svg viewBox="0 0 32 32"><path class="ink" d="M6 26V10M26 26V10M4 26h4M24 26h4"/><path class="ink belt" d="M6 13h20"/></svg>Barrier<span class="tp-cost">1 m²</span></button>
+  <button class="tp-tool"><svg viewBox="0 0 32 32"><rect class="ink" x="5" y="12" width="22" height="10" rx="3"/><path class="ink" d="M10 22v4M22 22v4M16 8v4"/></svg>Lane<span class="tp-cost">−1 staff</span></button>
+  <button class="tp-tool"><svg viewBox="0 0 32 32"><circle class="ink" cx="16" cy="12" r="5"/><path class="ink" d="M10 9h12M7 27c1-5 5-8 9-8s8 3 9 8"/></svg>Staff<span class="tp-cost">$300</span></button>
+  <button class="tp-tool"><svg viewBox="0 0 32 32"><path class="ink" d="M5 22h22M5 10h22"/><circle class="ink" cx="11" cy="10" r="3"/><circle class="ink" cx="21" cy="22" r="3"/></svg>Open rule<span class="tp-cost">free</span></button>
+  <button class="tp-tool"><svg viewBox="0 0 32 32"><rect class="ink" x="6" y="5" width="20" height="13" rx="3"/><path class="ink" d="M16 18v9M11 27h10"/></svg>Wait sign<span class="tp-cost">$80</span></button>
+</div>
+
+<div id="runbar" class="hud">
+  <span class="tp-speed" id="speed" hidden><button data-s="0">❚❚</button><button data-s="1" aria-pressed="true">1×</button><button data-s="2">2×</button><button data-s="4">4×</button></span>
+  <button class="tp-run ghost" id="editBtn" hidden>✎ Edit plan</button>
+  <button class="tp-run" id="runBtn">▶ Run</button>
+</div>
+
+<button class="hud tp-map" id="styleBtn" style="top:64px"><span class="ico" style="background:var(--surface-sunken)"><svg viewBox="0 0 18 18" width="18" height="18"><path style="stroke:var(--ink)" d="M9 2a3 3 0 1 1 0 6a3 3 0 1 1 0-6M4 16c0-4 2-6 5-6s5 2 5 6z"/></svg></span><span id="styleTxt">A · Chunky toy</span> <kbd>C</kbd></button>
+
+<div id="help" class="hud"><b>Pan</b> hold left mouse + drag, or WASD / arrows · <b>Zoom</b> wheel · <b>Map</b> Tab · <b>Run</b> Space · <b>Character style</b> C</div>
+
+<div id="map" data-theme="blueprint" aria-hidden="true">
+  <div class="head"><b>Blueprint · Morning rush</b><span id="mapStat"></span></div>
+  <svg id="mapSvg" viewBox="0 0 1100 520"></svg>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(() => {
+// ================= colours (from tokens) =================
+const COL = {
+  floor:0xe9e1d3, table:0xddd2bf, wall:0xcdc3b3, post:0x4a4f5a, belt:0x2b67b0, desk:0xb98c5e, deskTop:0xcfa274,
+  scanner:0x8fa3b5, conveyor:0x4a4f5a, staff:0x1f2a44, biz:0x3a3f4b, fam:0x8a5cb5, famLight:0xb79ad3, ft:0x257485,
+  hat:0xd8c49a, hairDark:0x2b2522, mat:0xdcd3c3, gridLine:0xc9bba5
+};
+const SKIN = [0xf1c7a3, 0xd9a47c, 0xb57d55, 0x8a5a3b];
+
+// ================= seeded random (P3: same plan, same result) =================
+function rng(seed){ let a = seed>>>0; return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+
+// ================= renderer, scene, camera =================
+const renderer = new THREE.WebGLRenderer({ antialias:true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.setClearColor(COL.table);
+document.body.prepend(renderer.domElement);
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(30, innerWidth/innerHeight, 0.5, 300);
+const PITCH = 55 * Math.PI/180;
+const cam = { tx:1, tz:0.5, dist:30, minD:10, maxD:52 };
+function placeCamera(){
+  camera.position.set(cam.tx, cam.dist*Math.sin(PITCH), cam.tz + cam.dist*Math.cos(PITCH));
+  camera.lookAt(cam.tx, 0, cam.tz);
+}
+placeCamera();
+
+// lights: one soft sun from the upper left, warm ambient
+scene.add(new THREE.HemisphereLight(0xfff6e8, 0xcbbfa8, 0.75));
+const sun = new THREE.DirectionalLight(0xfff1dc, 0.65);
+sun.position.set(-14, 22, 10);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, { left:-16, right:16, top:12, bottom:-12, near:1, far:60 });
+sun.shadow.radius = 4;
+sun.shadow.bias = -0.0008;
+scene.add(sun);
+
+const mat = c => new THREE.MeshLambertMaterial({ color:c });
+function box(w,h,d,c,x,y,z,parent=scene){ const m = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), mat(c)); m.position.set(x,y,z); m.castShadow = m.receiveShadow = true; parent.add(m); return m; }
+function cyl(rt,rb,h,c,x,y,z,parent=scene,seg=16){ const m = new THREE.Mesh(new THREE.CylinderGeometry(rt,rb,h,seg), mat(c)); m.position.set(x,y,z); m.castShadow = m.receiveShadow = true; parent.add(m); return m; }
+function sph(r,c,x,y,z,parent=scene){ const m = new THREE.Mesh(new THREE.SphereGeometry(r,16,12), mat(c)); m.position.set(x,y,z); m.castShadow = true; parent.add(m); return m; }
+
+// ================= people (read from above) =================
+// Two candidate character styles, switchable with the C key:
+//   A = chunky toy figure (Overcooked-like): big head, bean body, floating hands, dot eyes, bouncy walk
+//   B = wooden peg doll: turned peg body, ball head, painted hair, no limbs, slides with a wobble
+const HAIR = [0x2b2522, 0x4a2f1d, 0x8a4b23, 0xc9a25e];
+const lathe = (pts, c, parent, seg=24) => { const m = new THREE.Mesh(new THREE.LatheGeometry(pts.map(([x,y]) => new THREE.Vector2(x,y)), seg), mat(c)); m.castShadow = true; parent.add(m); return m; };
+const PROFILE = {
+  A: [[0,0],[0.22,0],[0.27,0.06],[0.3,0.3],[0.29,0.55],[0.24,0.76],[0.14,0.86],[0,0.88]],
+  B: [[0,0],[0.25,0],[0.27,0.03],[0.27,0.07],[0.2,0.13],[0.18,0.5],[0.22,0.7],[0.23,0.82],[0.17,0.92],[0,0.95]]
+};
+const HEAD = { A:{ r:0.31, y:1.16 }, B:{ r:0.22, y:1.15 } };
+
+// One figure: body colour, skin, hair colour, and a scale (kids are smaller).
+function figure(style, o){
+  const outer = new THREE.Group(), g = new THREE.Group(); outer.add(g); outer.userData.inner = g;
+  const s = o.scale || 1, H = HEAD[style];
+  g.scale.setScalar(s);
+  lathe(PROFILE[style], o.body, g);
+  if (style === 'B') cyl(0.272,0.272,0.07,o.base ?? 0x6b5a48,0,0.035,0,g,24); // painted base ring
+  sph(H.r, o.skin, 0, H.y, 0, g);
+  // painted / sculpted hair: a cap over the back and top of the head
+  if (o.hair != null){ const hair = new THREE.Mesh(new THREE.SphereGeometry(H.r*1.04, 20, 12, 0, Math.PI*2, 0, Math.PI*0.42), mat(o.hair));
+    hair.position.set(0, H.y, -0.02); hair.rotation.x = -0.35; hair.castShadow = true; g.add(hair); }
+  // dot eyes (front = +z)
+  const ey = H.y + 0.02, ez = H.r*0.92, ex = H.r*0.34;
+  sph(style==='A'?0.04:0.028, 0x1d1a17, -ex, ey, ez, g); sph(style==='A'?0.04:0.028, 0x1d1a17, ex, ey, ez, g);
+  if (style === 'A'){ // floating hands and little feet
+    g.userData.hands = [sph(0.085, o.skin, -0.36, 0.48, 0.06, g), sph(0.085, o.skin, 0.36, 0.48, 0.06, g)];
+    const fl = sph(0.1, 0x2a2522, -0.11, 0.04, 0.08, g), fr = sph(0.1, 0x2a2522, 0.11, 0.04, 0.08, g); fl.scale.y = fr.scale.y = 0.5;
+  }
+  outer.userData.style = style; outer.userData.headTop = (H.y + H.r) * s; outer.userData.headR = H.r * s;
+  return outer;
+}
+// accessories sit relative to the head, so they work for both styles
+function cap(fig, c){ const g = fig.userData.inner, H = HEAD[fig.userData.style];
+  cyl(H.r*0.98, H.r*1.02, 0.13, c, 0, H.y + H.r*0.62, 0, g, 20); box(H.r*1.1, 0.03, H.r*0.8, c, 0, H.y + H.r*0.5, H.r*0.85, g); }
+function wideHat(fig, c){ const g = fig.userData.inner, H = HEAD[fig.userData.style];
+  cyl(H.r*1.6, H.r*1.6, 0.03, c, 0, H.y + H.r*0.55, 0, g, 24); cyl(H.r*0.75, H.r*0.85, 0.16, c, 0, H.y + H.r*0.75, 0, g, 20); }
+function flatTop(fig, c){ const g = fig.userData.inner, H = HEAD[fig.userData.style];
+  box(H.r*1.75, 0.12, H.r*1.75, c, 0, H.y + H.r*0.82, -0.02, g); }
+
+let charStyle = 'A';
+const staffList = [];
+function makeStaff(x,z,ry){
+  const f = figure(charStyle, { body:COL.staff, skin:SKIN[1], hair:null, base:0x141c2e });
+  cap(f, COL.staff);
+  if (charStyle === 'A') f.userData.inner.userData.hands.forEach(h => h.position.z = 0.22); // hands on the desk
+  f.position.set(x,0,z); f.rotation.y = ry; scene.add(f);
+  staffList.push({ x, z, ry, mesh:f }); return f;
+}
+const TYPES = {
+  biz:   { name:'Business', service:3.2 },
+  ft:    { name:'First-timer', service:5.5 },
+  fam:   { name:'Family', service:8.0 }
+};
+function makePax(type, r){
+  const skin = SKIN[Math.floor(r()*SKIN.length)], hair = HAIR[Math.floor(r()*HAIR.length)];
+  let f;
+  if (type === 'biz'){
+    f = figure(charStyle, { body:COL.biz, skin, hair:null, base:0x23262d }); flatTop(f, hair === 0xc9a25e ? 0x2b2522 : hair);
+    box(0.1, 0.34, 0.4, 0x23262d, 0.42, 0.5, 0, f.userData.inner);                 // briefcase
+  } else if (type === 'ft'){
+    f = figure(charStyle, { body:0xd9cbb3, skin, hair, base:0x9c8b70 }); wideHat(f, COL.hat);
+    box(0.42, 0.5, 0.26, COL.ft, 0, 0.62, -0.33, f.userData.inner);                // big teal backpack
+  } else {
+    f = figure(charStyle, { body:COL.fam, skin, hair, base:0x5e3c80 });
+    const kid = figure(charStyle, { body:COL.famLight, skin:SKIN[Math.floor(r()*SKIN.length)], hair:HAIR[Math.floor(r()*HAIR.length)], scale:0.6, base:0x8f74ad });
+    kid.position.set(-0.45, 0, -0.2); f.userData.inner.add(kid);
+    const st = new THREE.Group(); f.userData.inner.add(st); st.position.set(0, 0, 0.62);  // stroller with hood
+    box(0.44, 0.3, 0.6, COL.famLight, 0, 0.42, 0, st); box(0.44, 0.26, 0.3, COL.fam, 0, 0.66, 0.16, st);
+    [[-0.2,-0.22],[0.2,-0.22],[-0.2,0.22],[0.2,0.22]].forEach(([wx,wz]) => { const w = cyl(0.08,0.08,0.05,0x2a2522,wx,0.08,wz,st,12); w.rotation.z = Math.PI/2; });
+  }
+  scene.add(f); return f;
+}
+// walking: A bounces and swings its hands, B slides with a wobble
+function animateFigure(p, moving, dt){
+  const g = p.mesh.userData.inner;
+  if (moving) p.walk = (p.walk || 0) + dt*10; else p.walk = (p.walk || 0) * 0.85;
+  const w = p.walk || 0, amp = moving ? 1 : 0;
+  if (p.mesh.userData.style === 'A'){
+    g.position.y = Math.abs(Math.sin(w)) * 0.07 * amp;
+    const h = g.userData.hands; if (h){ h[0].position.z = 0.06 + Math.sin(w)*0.12*amp; h[1].position.z = 0.06 - Math.sin(w)*0.12*amp; }
+  } else {
+    g.position.y = Math.abs(Math.sin(w)) * 0.03 * amp;
+    g.rotation.z = Math.sin(w) * 0.09 * amp;
+  }
+}
+// rebuild every person in the chosen style (same people, same positions)
+function setCharStyle(s){
+  charStyle = s;
+  const old = staffList.splice(0); old.forEach(o => { scene.remove(o.mesh); makeStaff(o.x, o.z, o.ry); });
+  if (sim) sim.pax.forEach(p => { scene.remove(p.mesh); p.mesh = makePax(p.type, rng(p.seed)); p.mesh.position.set(p.x,0,p.z); });
+  document.getElementById('styleTxt').textContent = s === 'A' ? 'A · Chunky toy' : 'B · Peg doll';
+}
+
+// ================= world layout (metres; 1 tile = 0.5 m) =================
+// Flow is left → right: entrance → serpentine queue → 3 lanes (desk + scanner) → waiting area → bag search → gates.
+const AREA = { x0:-9.5, x1:11.5, z0:-4.5, z1:4.5 };
+const floor = new THREE.Mesh(new THREE.BoxGeometry(AREA.x1-AREA.x0, 0.2, AREA.z1-AREA.z0), mat(COL.floor));
+floor.position.set((AREA.x0+AREA.x1)/2, -0.1, (AREA.z0+AREA.z1)/2); floor.receiveShadow = true; scene.add(floor);
+
+// low perimeter walls (≤ 1.2 m so the queue is never hidden)
+box(AREA.x1-AREA.x0, 1.0, 0.2, COL.wall, (AREA.x0+AREA.x1)/2, 0.5, AREA.z0);
+box(0.2, 1.0, 3.0, COL.wall, AREA.x0, 0.5, AREA.z0+1.5);
+box(0.2, 1.0, 3.0, COL.wall, AREA.x0, 0.5, AREA.z1-1.5);
+
+// plan grid (shown in Plan only)
+const grid = new THREE.Group();
+{ const pts = []; for (let x=AREA.x0; x<=AREA.x1+1e-6; x+=0.5){ pts.push(x,0.005,AREA.z0, x,0.005,AREA.z1); } for (let z=AREA.z0; z<=AREA.z1+1e-6; z+=0.5){ pts.push(AREA.x0,0.005,z, AREA.x1,0.005,z); }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pts,3));
+  grid.add(new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color:COL.gridLine, transparent:true, opacity:.55 }))); }
+scene.add(grid);
+
+// --- serpentine queue: 5 rows of 1 m lanes, posts every 1 m, accent belts ---
+const Q = { xL:-7, xR:-2, rows:[2,1,0,-1,-2] };
+function post(x,z){ cyl(0.04,0.04,1.0,COL.post,x,0.5,z); cyl(0.16,0.16,0.03,COL.post,x,0.015,z); }
+function belt(x0,x1,z){ for (let x=x0; x<=x1+1e-6; x+=1) post(x,z); box(x1-x0,0.06,0.02,COL.belt,(x0+x1)/2,0.9,z); }
+belt(Q.xL, Q.xR+1, 2.5);          // outer bottom
+belt(Q.xL, Q.xR, 1.5);            // turn at right
+belt(Q.xL+1, Q.xR+1, 0.5);        // turn at left
+belt(Q.xL, Q.xR, -0.5);
+belt(Q.xL+1, Q.xR+1, -1.5);
+belt(Q.xL, Q.xR+1, -2.5);         // outer top
+
+// path through the serpentine, front of queue last
+const qPath = [];
+{ let dir = 1;
+  for (const z of Q.rows){ const a = dir>0 ? Q.xL+0.5 : Q.xR+0.5, b = dir>0 ? Q.xR+0.5 : Q.xL+0.5; qPath.push([a,z],[b,z]); dir *= -1; } }
+// resample to 0.5 m slots (passenger-slot)
+const slots = [];
+for (let i=0;i<qPath.length-1;i++){ const [x0,z0]=qPath[i],[x1,z1]=qPath[i+1]; const len=Math.hypot(x1-x0,z1-z0), n=Math.round(len/0.5);
+  for (let k=0;k<n;k++) slots.push([x0+(x1-x0)*k/n, z0+(z1-z0)*k/n]); }
+slots.push(qPath[qPath.length-1]);
+slots.reverse(); // slots[0] = front of the queue
+const QUEUE_FRONT = { x:-1.2, z:-2 };
+
+// --- 3 lanes: desk (ID check) + scanner ---
+const LANES = [-2.6, 0, 2.6].map((z,i) => ({ i, z, serveX:0.2, desk:null, busy:0, state:'idle', pax:null, t:0, ema:0 }));
+LANES.forEach(L => {
+  box(1.1,0.85,0.6,COL.desk,1.0,0.425,L.z-0.55); box(1.16,0.06,0.66,COL.deskTop,1.0,0.88,L.z-0.55);
+  box(1.4,1.0,0.9,COL.scanner,3.2,0.5,L.z); box(1.0,0.5,0.7,0x6f8496,3.2,1.2,L.z);
+  box(2.8,0.08,0.55,COL.conveyor,3.2,0.82,L.z+0.0).position.y = 0.78;
+  makeStaff(1.0, L.z-1.15, 0);
+  makeStaff(3.2, L.z-0.85, 0);
+  // lane dividers
+  belt(0.5, 2.5, L.z+1.3);
+});
+
+// --- waiting area (capacity 8) and bag search ---
+const WAIT = { x0:5.0, x1:8.0, z0:-2.5, z1:2.5, cap:8 };
+{ const m = new THREE.Mesh(new THREE.BoxGeometry(WAIT.x1-WAIT.x0, 0.02, WAIT.z1-WAIT.z0), mat(COL.mat)); m.position.set((WAIT.x0+WAIT.x1)/2, 0.01, 0); m.receiveShadow = true; scene.add(m);
+  box(WAIT.x1-WAIT.x0,0.6,0.15,COL.wall,(WAIT.x0+WAIT.x1)/2,0.3,WAIT.z0); box(WAIT.x1-WAIT.x0,0.6,0.15,COL.wall,(WAIT.x0+WAIT.x1)/2,0.3,WAIT.z1); }
+const waitSpots = []; for (let r=0;r<2;r++) for (let c=0;c<4;c++) waitSpots.push([WAIT.x0+0.5+c*0.7, -0.6+r*1.2]);
+const BAG = { x:9.4, z:0, state:'idle', pax:null, t:0, ema:0 };
+box(1.2,0.85,1.6,COL.desk,9.9,0.425,0); box(1.26,0.06,1.66,COL.deskTop,9.9,0.88,0); makeStaff(10.7,0,-Math.PI/2);
+box(0.2,1.0,3.0,COL.wall,AREA.x1,0.5,-3.0); box(0.2,1.0,3.0,COL.wall,AREA.x1,0.5,3.0);
+
+// ================= simulation (deterministic, fixed step) =================
+let sim;
+function resetSim(){
+  if (sim) sim.pax.forEach(p => scene.remove(p.mesh));
+  const r = rng(20261010);
+  sim = { r, t:0, nextArrival:0, pax:[], queue:[], waitArea:[], served:0, done:0, id:0 };
+  LANES.forEach(L => { L.state='idle'; L.pax=null; L.t=0; L.ema=0; });
+  Object.assign(BAG, { state:'idle', pax:null, t:0, ema:0 });
+  // pre-fill the queue so Plan shows a scene
+  for (let i=0;i<22;i++) spawn(true);
+  sim.nextArrival = 1.0;
+  layoutQueue(true);
+}
+function pickType(r){ const v = r(); return v < 0.45 ? 'biz' : v < 0.75 ? 'ft' : 'fam'; }
+function spawn(prefill){
+  const type = pickType(sim.r);
+  const seed = Math.floor(sim.r()*1e9);
+  const p = { id:sim.id++, seed, type, mesh:makePax(type, rng(seed)), x:-9, z:2, tx:-9, tz:2, wait:0, mood:0, moodShown:-1, moodEl:null, moodT:0, phase:'queue', way:[] };
+  if (prefill){ const s = slots[Math.min(sim.queue.length, slots.length-1)]; p.x = p.tx = s[0]; p.z = p.tz = s[1]; p.wait = sim.r()*240; p.mood = p.wait > 300 ? 2 : p.wait > 150 ? 1 : 0; }
+  p.mesh.position.set(p.x,0,p.z);
+  sim.pax.push(p); sim.queue.push(p);
+}
+function layoutQueue(snap){
+  sim.queue.forEach((p,i) => { const s = slots[Math.min(i, slots.length-1)]; p.tx = s[0]; p.tz = s[1]; if (snap){ p.x=p.tx; p.z=p.tz; } });
+}
+function step(dt){
+  sim.t += dt;
+  // arrivals in flight waves
+  if (sim.t >= sim.nextArrival && sim.queue.length < slots.length){
+    spawn(false); const wave = (Math.sin(sim.t/22)+1)/2; sim.nextArrival = sim.t + (1.1 + 1.6*(1-wave)) * (0.6 + sim.r()*0.8);
+  }
+  // lanes: take the head of the queue when free
+  LANES.forEach(L => {
+    if (L.state==='idle' && sim.queue.length){
+      const p = sim.queue.shift(); L.pax = p; L.state='walking'; p.phase='lane'; p.tx = L.serveX; p.tz = L.z; layoutQueue(false);
+    }
+    if (L.state==='walking' && L.pax && Math.hypot(L.pax.x-L.pax.tx, L.pax.z-L.pax.tz) < 0.15){ L.state='serving'; L.t = TYPES[L.pax.type].service*(0.6+sim.r()*0.9); go(L.pax, [[1.6, L.z+0.75],[2.2, L.z+0.75]]); }
+    if (L.state==='serving'){ L.t -= dt; if (L.t <= 0) L.state = 'leaving'; }
+    if (L.state==='leaving' || L.state==='blocked'){
+      if (sim.waitArea.length < WAIT.cap){
+        const p = L.pax; p.phase='wait'; const spot = waitSpots[sim.waitArea.length]; go(p, [[4.5, L.z+0.75], spot]); p.wait = 0; p.mood = 0;
+        sim.waitArea.push(p); L.pax=null; L.state='idle';
+      } else L.state='blocked';
+    }
+    L.ema += ((L.state==='serving'||L.state==='blocked'||L.state==='walking' ? 1 : 0) - L.ema) * dt/12;
+  });
+  // bag search (slow → can fill the waiting area → lanes block)
+  if (BAG.state==='idle' && sim.waitArea.length){ const p = sim.waitArea.shift(); BAG.pax=p; BAG.state='serving'; BAG.t = 1.4 + sim.r()*1.2; go(p, [[BAG.x, BAG.z]]); sim.waitArea.forEach((q,i)=>{ if (q.way.length) q.way[q.way.length-1] = waitSpots[i]; else { q.tx = waitSpots[i][0]; q.tz = waitSpots[i][1]; } }); }
+  if (BAG.state==='serving'){ BAG.t -= dt; if (BAG.t<=0){ const p = BAG.pax; p.phase='exit'; go(p, [[11.0, (sim.r()-0.5)*2.2],[13, (sim.r()-0.5)*2.2]]); BAG.pax=null; BAG.state='idle'; sim.done++; } }
+  BAG.ema += ((BAG.state==='serving'?1:0) - BAG.ema) * dt/12;
+  // passengers: waiting time and mood
+  sim.pax.forEach(p => {
+    if (p.phase==='queue' || p.phase==='wait') p.wait += dt;
+    const m = p.wait > 300 ? 2 : p.wait > 150 ? 1 : 0;
+    if (m !== p.mood){ p.mood = m; p.moodT = 2.0; }
+    if (p.moodT > 0) p.moodT -= dt;
+  });
+  // remove exited passengers
+  sim.pax = sim.pax.filter(p => { if (p.phase==='exit' && p.x > 12.2){ scene.remove(p.mesh); if (p.moodEl) p.moodEl.remove(); return false; } return true; });
+}
+function go(p, pts){ p.way = pts.slice(1); p.tx = pts[0][0]; p.tz = pts[0][1]; }
+function moveAll(dt){
+  sim.pax.forEach(p => {
+    if (p.way.length && Math.hypot(p.tx-p.x, p.tz-p.z) < 0.12){ const n = p.way.shift(); p.tx = n[0]; p.tz = n[1]; }
+    const dx = p.tx - p.x, dz = p.tz - p.z, d = Math.hypot(dx,dz);
+    if (d > 0.001){ const sp = Math.min(d, 1.6*dt + d*Math.min(1, dt*3)); p.x += dx/d*sp; p.z += dz/d*sp; p.mesh.rotation.y = Math.atan2(dx, dz); }
+    p.mesh.position.set(p.x, 0, p.z);
+    animateFigure(p, d > 0.01, dt);
+  });
+}
+
+// ================= labels (WorldLabel, WaitSign, MoodBubble) =================
+const labels = document.getElementById('labels');
+function el(cls, html){ const d = document.createElement('div'); d.className = cls; d.innerHTML = html; labels.appendChild(d); return d; }
+const tag = {
+  queue: el('tp-wlabel',''), wait: el('tp-wait','<span class="v">≈ 0 min</span><span class="k">Wait from here</span>'),
+  lanes: LANES.map(() => el('tp-wlabel','')), area: el('tp-wlabel',''), bag: el('tp-wlabel','')
+};
+const v3 = new THREE.Vector3();
+function put(node, x,y,z){ v3.set(x,y,z).project(camera); const vis = v3.z < 1 && Math.abs(v3.x) < 1.1 && Math.abs(v3.y) < 1.1;
+  node.style.display = vis ? '' : 'none'; node.style.left = ((v3.x+1)/2*innerWidth)+'px'; node.style.top = ((1-v3.y)/2*innerHeight)+'px'; }
+function status(busy, blocked){ return blocked || busy >= .9 ? 'bad' : busy >= .8 ? 'warn' : 'good'; }
+function gaugeColor(s){ return s==='bad' ? 'var(--status-bad)' : s==='warn' ? 'var(--status-warn)' : 'var(--status-good)'; }
+let throughput = []; // completion times for the ≈ wait estimate (Little's Law)
+function updateLabels(){
+  const qn = sim.queue.length;
+  tag.queue.innerHTML = `<span class="tp-dot ${qn>45?'bad':qn>32?'warn':'good'}"></span>Queue · <span class="n">${qn}</span>`;
+  put(tag.queue, -4.5, 2.1, -3.2);
+  const est = Math.max(1, Math.round(qn / 3)); // look test: ≈ queue length ÷ throughput (3 per game-minute)
+  tag.wait.querySelector('.v').textContent = `≈ ${est} min`;
+  put(tag.wait, -8.3, 2.0, 2.2);
+  LANES.forEach((L,i) => { const s = status(L.ema, L.state==='blocked'); const pct = Math.round(L.ema*100);
+    tag.lanes[i].innerHTML = `<span class="tp-dot ${s}"></span>Lane ${i+1}${L.state==='blocked'?' · blocked':''}<span class="bar"><i style="width:${pct}%;background:${gaugeColor(s)}"></i></span><span class="n">${pct}%</span>`;
+    put(tag.lanes[i], 2.2, 2.5, L.z); });
+  const full = sim.waitArea.length >= WAIT.cap;
+  tag.area.innerHTML = `<span class="tp-dot ${full?'bad':sim.waitArea.length>=6?'warn':'good'}"></span>Waiting area · <span class="n">${sim.waitArea.length}/${WAIT.cap}</span>${full?' · full':''}`;
+  put(tag.area, 6.5, 1.6, -2.6);
+  const bs = status(BAG.ema, false);
+  tag.bag.innerHTML = `<span class="tp-dot ${bs}"></span>Bag search<span class="bar"><i style="width:${Math.round(BAG.ema*100)}%;background:${gaugeColor(bs)}"></i></span><span class="n">${Math.round(BAG.ema*100)}%</span>`;
+  put(tag.bag, 9.9, 2.4, -0.6);
+  // mood bubbles: only when mood changes, fade after 2 s
+  sim.pax.forEach(p => {
+    if (p.moodT > 0 && running){
+      if (!p.moodEl) p.moodEl = el('tp-mood','');
+      p.moodEl.textContent = ['😊','😐','😡'][p.mood]; p.moodEl.classList.toggle('bad', p.mood===2);
+      p.moodEl.style.opacity = Math.min(1, p.moodT*1.5); put(p.moodEl, p.x, 2.05, p.z);
+    } else if (p.moodEl){ p.moodEl.remove(); p.moodEl = null; }
+  });
+}
+
+// ================= blueprint map =================
+const mapEl = document.getElementById('map'), svg = document.getElementById('mapSvg');
+const S = 46, OX = (x) => (x - AREA.x0) * S + 30, OY = (z) => (z - AREA.z0) * S + 40;
+function drawMap(){
+  const qn = sim.queue.length, full = sim.waitArea.length >= WAIT.cap;
+  let h = '<defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="bp-head" d="M0 0L10 5L0 10z"/></marker></defs>';
+  for (let x=AREA.x0; x<=AREA.x1+1e-6; x+=0.5) h += `<line class="bp-grid" x1="${OX(x)}" y1="${OY(AREA.z0)}" x2="${OX(x)}" y2="${OY(AREA.z1)}"/>`;
+  for (let z=AREA.z0; z<=AREA.z1+1e-6; z+=0.5) h += `<line class="bp-grid" x1="${OX(AREA.x0)}" y1="${OY(z)}" x2="${OX(AREA.x1)}" y2="${OY(z)}"/>`;
+  const R = (x0,z0,x1,z1,cls='bp-obj') => `<rect class="${cls}" x="${OX(x0)}" y="${OY(z0)}" width="${(x1-x0)*S}" height="${(z1-z0)*S}" rx="6"/>`;
+  const T = (x,z,t,cls='bp-t',anchor='middle') => `<text class="${cls}" x="${OX(x)}" y="${OY(z)}" text-anchor="${anchor}">${t}</text>`;
+  const mark = (x,z,s) => s==='good' ? `<circle class="bp-good" cx="${OX(x)}" cy="${OY(z)}" r="5"/>` : s==='warn' ? `<path class="bp-warn" d="M${OX(x)-6} ${OY(z)+5}l6 -11l6 11z"/>` : `<rect class="bp-bad" x="${OX(x)-5}" y="${OY(z)-5}" width="10" height="10" rx="2"/>`;
+  // entrance + queue
+  h += R(-9.4,1.5,-7.6,3) + T(-8.5,2.4,'Entrance');
+  const qs = qn>45?'bad':qn>32?'warn':'good';
+  h += R(Q.xL,-2.5,Q.xR+1,2.5, qs==='bad'?'bp-hot':'bp-obj');
+  sim.queue.forEach((p,i)=>{ const s = slots[Math.min(i,slots.length-1)]; h += `<circle class="bp-pax" cx="${OX(s[0])}" cy="${OY(s[1])}" r="4"/>`; });
+  h += mark(Q.xL+0.3,-2.9,qs) + T(Q.xL+0.6,-2.8,`queue · ${qn} people · serpentine`,'bp-tm','start');
+  // lanes
+  LANES.forEach((L,i) => { const s = status(L.ema, L.state==='blocked');
+    h += R(0.3,L.z-1.0,4.0,L.z+1.0, s==='bad'?'bp-hot':'bp-obj') + T(2.15,L.z-0.15,`Lane ${i+1} · ID + scanner`);
+    h += mark(0.7,L.z+0.55,s) + T(0.95,L.z+0.68,`${Math.round(L.ema*100)}%${L.state==='blocked'?' · BLOCKED':''}`,'bp-tm','start'); });
+  // waiting area + bag
+  h += R(WAIT.x0,WAIT.z0,WAIT.x1,WAIT.z1, full?'bp-hot':'bp-obj') + T((WAIT.x0+WAIT.x1)/2,-1.6,'Waiting area');
+  sim.waitArea.forEach((p,i)=>{ const s = waitSpots[i]; h += `<circle class="bp-pax" cx="${OX(s[0])}" cy="${OY(s[1])}" r="4"/>`; });
+  h += T((WAIT.x0+WAIT.x1)/2,1.95,`cap ${sim.waitArea.length}/${WAIT.cap}${full?' · FULL':''}`,'bp-tm');
+  const bs = status(BAG.ema,false);
+  h += R(9.1,-1.0,10.7,1.0, bs==='bad'?'bp-hot':'bp-obj') + T(9.9,-0.1,'Bag search') + mark(9.35,0.55,bs) + T(9.6,0.68,`${Math.round(BAG.ema*100)}%`,'bp-tm','start');
+  if (full || bs==='bad') h += T(9.9,-1.4, '■ bottleneck', 'bp-t');
+  // flows
+  const F = (x0,z0,x1,z1) => `<path class="bp-flow" d="M${OX(x0)} ${OY(z0)}L${OX(x1)} ${OY(z1)}" marker-end="url(#ah)"/>`;
+  h += F(-7.6,2.2,-7.05,2.2) + LANES.map(L=>F(-1.6,-2,0.25,L.z)).join('') + LANES.map(L=>F(4.0,L.z,4.95,L.z*0.4)).join('') + F(8.0,0,9.05,0) + F(10.7,0,11.4,0);
+  h += T(AREA.x0+0.1,AREA.z1+0.55,'1 square = 1 tile (0.5 m) · arrows = passenger route · ● fine  ▲ slowing  ■ problem','bp-tm','start');
+  svg.innerHTML = h;
+  document.getElementById('mapStat').textContent = running ? `RUN · ${Math.floor(sim.t/60)}:${String(Math.floor(sim.t%60)).padStart(2,'0')} · ${sim.done} through` : 'PLAN · same seed every run';
+}
+let mapOpen = false;
+function toggleMap(){ mapOpen = !mapOpen; mapEl.classList.toggle('open', mapOpen); mapEl.setAttribute('aria-hidden', !mapOpen);
+  document.getElementById('mapTxt').textContent = mapOpen ? 'Close map' : 'Map'; document.getElementById('mapBtn').setAttribute('aria-pressed', mapOpen);
+  labels.style.visibility = mapOpen ? 'hidden' : ''; if (mapOpen) drawMap(); }
+document.getElementById('mapBtn').onclick = toggleMap;
+document.getElementById('styleBtn').onclick = () => setCharStyle(charStyle === 'A' ? 'B' : 'A');
+
+// ================= Plan / Run =================
+let running = false, speed = 1;
+const runBtn = document.getElementById('runBtn'), editBtn = document.getElementById('editBtn'), speedEl = document.getElementById('speed'), tray = document.getElementById('tray'), phase = document.getElementById('phase');
+function setRunning(on){
+  running = on; grid.visible = !on; tray.hidden = on; speedEl.hidden = !on; editBtn.hidden = !on; runBtn.hidden = on;
+  phase.textContent = on ? 'WATCH' : 'PLAN';
+  if (!on) resetSim(); // same seed → same result on every run (P3)
+}
+runBtn.onclick = () => setRunning(true);
+editBtn.onclick = () => setRunning(false);
+speedEl.querySelectorAll('button').forEach(b => b.onclick = () => { speed = +b.dataset.s; speedEl.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', x===b)); });
+tray.querySelectorAll('.tp-tool').forEach(b => b.onclick = () => tray.querySelectorAll('.tp-tool').forEach(x => x.setAttribute('aria-pressed', x===b)));
+
+// ================= camera controls: pan (hold left mouse + drag, or keys) + zoom =================
+const keys = {}; let mouse = { x:innerWidth/2, y:innerHeight/2, inside:false }, drag = null;
+addEventListener('keydown', e => {
+  if (e.key === 'Tab' || e.key === 'm' || e.key === 'M'){ e.preventDefault(); toggleMap(); return; }
+  if (e.key === 'c' || e.key === 'C'){ setCharStyle(charStyle === 'A' ? 'B' : 'A'); return; }
+  if (e.code === 'Space'){ e.preventDefault(); if (!running) setRunning(true); else { speed = speed ? 0 : 1; speedEl.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', +x.dataset.s===speed)); } return; }
+  keys[e.key.toLowerCase()] = true; });
+addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
+renderer.domElement.addEventListener('mousemove', e => { mouse = { x:e.clientX, y:e.clientY, inside:true };
+  if (drag){ const k = cam.dist/600; cam.tx -= (e.clientX-drag.x)*k; cam.tz -= (e.clientY-drag.y)*k/Math.sin(PITCH); drag = { x:e.clientX, y:e.clientY }; } });
+renderer.domElement.addEventListener('mouseleave', () => mouse.inside = false);
+renderer.domElement.addEventListener('mousedown', e => { if (e.button === 0){ drag = { x:e.clientX, y:e.clientY }; renderer.domElement.style.cursor = 'grabbing'; } });
+addEventListener('mouseup', () => { drag = null; renderer.domElement.style.cursor = 'grab'; });
+renderer.domElement.addEventListener('contextmenu', e => e.preventDefault());
+renderer.domElement.addEventListener('wheel', e => { e.preventDefault(); cam.dist = Math.min(cam.maxD, Math.max(cam.minD, cam.dist * (1 + Math.sign(e.deltaY)*0.1))); }, { passive:false });
+function updateCamera(dt){
+  if (mapOpen) return;
+  const sp = cam.dist * 0.9 * dt; let dx = 0, dz = 0;
+  if (keys['a']||keys['arrowleft']) dx -= 1; if (keys['d']||keys['arrowright']) dx += 1;
+  if (keys['w']||keys['arrowup']) dz -= 1; if (keys['s']||keys['arrowdown']) dz += 1;
+  cam.tx = Math.min(AREA.x1+2, Math.max(AREA.x0-2, cam.tx + dx*sp)); cam.tz = Math.min(AREA.z1+2, Math.max(AREA.z0-2, cam.tz + dz*sp));
+  placeCamera();
+}
+addEventListener('resize', () => { renderer.setSize(innerWidth, innerHeight); camera.aspect = innerWidth/innerHeight; camera.updateProjectionMatrix(); });
+
+// ================= loop =================
+resetSim(); setRunning(false);
+let last = performance.now(), acc = 0, mapTimer = 0; const FIXED = 1/30;
+function frame(now){
+  const dt = Math.min(0.05, (now-last)/1000); last = now;
+  updateCamera(dt);
+  if (running && speed){ acc += dt*speed; while (acc >= FIXED){ step(FIXED); acc -= FIXED; } moveAll(dt*speed); }
+  updateLabels();
+  if (mapOpen && (mapTimer += dt) > 0.25){ mapTimer = 0; drawMap(); }
+  renderer.render(scene, camera);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
