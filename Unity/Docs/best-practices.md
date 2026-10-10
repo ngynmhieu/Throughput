@@ -169,6 +169,35 @@ General rules:
 
 ---
 
+## 10. VS Code setup
+
+**What it is:** VS Code needs two extensions to work with Unity: **C# Dev Kit** (C# language support) and **Unity** (`visualstudiotoolsforunity.vstuc`: debugging, Unity warnings, autocomplete). Unity needs the `com.unity.ide.visualstudio` package (already installed) and *Preferences → External Tools → External Script Editor* = **Visual Studio Code**.
+
+**What the Unity extension gives:**
+- **Debugging:** F5 → *Attach to Unity*, set a breakpoint, run a test in the Test Runner, step through the code.
+- **Unity warnings:** for example, a misspelled `Updat()` that Unity would never call.
+- **Autocomplete and docs** for Unity methods (`Start`, `Update`…).
+- It does **not** run tests from VS Code; tests still run from Unity's Test Runner.
+
+**In Throughput (decided 2026-10-10):** work in **one VS Code window on the repo root**, not the `Unity/` window Unity opens.
+- `.vscode/settings.json` sets `"dotnet.defaultSolution": "Unity/Unity.slnx"` so C# works from the root, and hides Unity's generated folders and `.meta` files.
+- `.vscode/launch.json` has the *Attach to Unity* debug entry.
+- Catch: double-clicking a script or error **inside Unity** still opens a second window on `Unity/`. Open files from VS Code instead (Ctrl+P). `Unity/.vscode/` is Unity's own config for that window; leave it alone.
+
+---
+
+## 11. Unity CLI (for AI agents)
+
+**What it is:** Unity's command-line tool (`unity`). With the **Pipeline** package (`com.unity.pipeline`) in the project, it can drive the **open editor**: run C# (`unity command eval`), read the console, compile, run tests, edit scenes and assets. Unity recommends it over its old MCP server; agents that can run shell commands use it directly.
+
+**In Throughput (set up 2026-10-10):**
+- CLI installed at `%LOCALAPPDATA%\Unity\bin\unity.exe` (beta channel); Pipeline package added to `Packages/manifest.json`.
+- Check the connection: `unity status` should show the project as **ready**.
+- No MCP config: Claude runs `unity` commands directly (faster, fewer tokens).
+- **Known Windows warning:** **Smart App Control** is on and blocks one unsigned file from the Pipeline package, `IlInterpreterAnalyzer.dll` (a compile-time code checker). Windows may show a ".NET blocked" notification after compiles. **It's harmless**: the project compiles and the CLI works (tested). Don't turn Smart App Control off for this; once off, Windows can't turn it back on without a reset.
+
+---
+
 ## Throughput checklist
 
 - [x] Visible Meta Files, Force Text serialization
@@ -177,6 +206,9 @@ General rules:
 - [x] Asmdefs: logic, tests, presentation
 - [x] `.gitkeep` in empty folders
 - [x] Rename `Sim` → `Core` (logic layer), engine in `Core/Sim/`
+- [x] VS Code works from the repo root (section 10)
+- [x] Unity CLI + Pipeline package (section 11)
+- [ ] Set Unity's External Script Editor to Visual Studio Code
 - [ ] Confirm the C# naming style (section 8)
 
 ## Sources

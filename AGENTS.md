@@ -58,6 +58,7 @@ Instructions for AI agents working on **Throughput**. Read this first, then the 
   - Solo project: commit and push directly to `main`. Create a branch only when the user asks for one.
   - Short, clear commit messages.
 - **Environment:** Windows; Git Bash and PowerShell are both available. Unity 6 LTS + C# when code starts.
+  - **Unity CLI** (`%LOCALAPPDATA%\Unity\bin\unity.exe`) drives the open editor through the Pipeline package: check `unity status`, then use `unity command …` rather than hand-editing scene/asset YAML. Pass C# to `eval` from Bash, not PowerShell (PowerShell splits the string). See [Unity/Docs/best-practices.md](Unity/Docs/best-practices.md) §11.
 
 ## Planned code layout (when code starts)
 

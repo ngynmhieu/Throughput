@@ -1,0 +1,34 @@
+{
+    // C# Dev Kit: load the Unity solution from the repo root (Unity's own window uses Unity/.vscode)
+    "dotnet.defaultSolution": "Unity/Unity.slnx",
+
+    // Hide what Unity generates; it's never edited by hand
+    "files.exclude": {
+        "Unity/Library/": true,
+        "Unity/Temp/": true,
+        "Unity/Logs/": true,
+        "Unity/obj/": true,
+        "Unity/UserSettings/": true,
+        "Unity/.vs/": true,
+        "**/*.meta": true
+    },
+    "search.exclude": {
+        "Unity/Library/": true,
+        "Unity/Temp/": true
+    },
+
+    // Unity scene/prefab/asset files are YAML text (Force Text serialization)
+    "files.associations": {
+        "*.asset": "yaml",
+        "*.meta": "yaml",
+        "*.prefab": "yaml",
+        "*.unity": "yaml",
+        "*.asmdef": "json"
+    },
+
+    // Fold generated .csproj files under the solution in the Explorer
+    "explorer.fileNesting.enabled": true,
+    "explorer.fileNesting.patterns": {
+        "*.slnx": "*.csproj"
+    }
+}
