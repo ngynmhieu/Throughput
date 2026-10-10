@@ -26,24 +26,28 @@ If a queue gets worse, the player can see why, either by watching the run or by 
 - **In style:** colour only for meaning (green fine, yellow slowing, red problem), one overlay at a time.
 - **In architecture:** the simulation records *why* things happened (e.g. "blocked: downstream full"), not just *what*, so the feedback layer can explain it.
 
-### P3. Same plan, same result
+### P3. Fair, not lucky
 
-The simulation is fair and repeatable. Retrying an unchanged design gives exactly the same outcome, so failure is the design's fault, not luck.
+Every attempt faces the **same amount of trouble**; only the timing and placement change. A good plan with good management passes, whatever the dice say. Any run can be replayed exactly.
 
-- **Rejects:** random events the player can't plan for, outcomes that swing on luck between retries.
-- **In gameplay:** passengers look random, but they're the same passengers every retry. Breakdowns and other events are **scheduled in the level** and visible in Plan, not random surprises.
-- **In style:** a level's events can be previewed on the flight board or timeline.
+- **Rejects:** luck deciding pass or fail; unbounded randomness (two breakdowns one run, none the next); outcomes that can't be explained afterwards.
+- **In gameplay:**
+  - Each level has an **event deck**: a fixed list of trouble such as "1 scanner breakdown, 1 delayed flight, 1 tour group". When and where each one hits is random per attempt (D12).
+  - Passengers and service times also vary per attempt, within the level's fixed mix and rates.
+  - No result preview in Plan (D11). You find out by running and managing.
+- **In style:** the level card says what *kind* of trouble to expect ("This shift: 1 breakdown, 1 delay"), never when.
 - **In architecture:**
-  - a **fixed random seed per level**
+  - each attempt gets its own **run seed**, saved with the run
+  - run seed + plan + manager actions with their times = exactly the same timeline, so replays are exact and automated tests can check it
   - the simulation never depends on frame rate or real time (guaranteed by the event-list design, D7)
-  - same input + same seed = same event list, which can be checked by automated tests
+  - level balance is tested by simulating many seeds headless: a plan's pass rate must be stable, not luck-driven
 
 ### P4. Calm, not frantic
 
 A thoughtful puzzle in a cozy miniature world. No time pressure while planning.
 
 - **Rejects:** twitch reactions, timers during Plan, stressful alarms, punishing fail screens.
-- **In gameplay:** Plan has no clock. A failed run is "edit and try again", not game over (D4).
+- **In gameplay:** Plan has no clock. Runs play at 1× but can be paused at any time, and manager actions work while paused. A failed run is "edit and try again", not game over (D4).
 - **In style:** soft colours, gentle music, satisfying clicks, subtle effects. Bad news is shown clearly but without alarm sounds or screen shake.
 - **In architecture:** nothing to enforce directly. It mostly guides UI and audio choices.
 
@@ -66,13 +70,13 @@ For any new idea, ask:
 
 1. **P1:** what does it cost the player?
 2. **P2:** when it affects the queue, can the player see why?
-3. **P3:** does it give the same result on every retry?
+3. **P3:** is it fair: does every attempt face the same amount of trouble, and can the run be replayed exactly?
 4. **P4:** does it keep the game calm?
 
 If any answer is "no", either redesign it or drop it.
 
 **Example:** "A VIP passenger randomly appears mid-run and skips the line."
-- P3 fails because it's random, so make it scheduled and shown in Plan.
+- P3 is fine only if the VIP is part of the level's event deck (fixed count, random timing), not a random extra.
 - P2 needs the VIP to be clearly visible, so the player knows why waits jumped.
 
 ## How to change the pillars
@@ -85,4 +89,5 @@ If any answer is "no", either redesign it or drop it.
 
 | Date | Change | Reason |
 |---|---|---|
+| 2026-10-10 | P3 rewritten from "Same plan, same result" to "Fair, not lucky". | Random events (event deck) added so live management matters (D12). |
 | 2026-10-10 | Adopted P1–P4. Considered "True to real queues" and "Small and readable" but did not adopt them. | Brainstorm debate, topic 2 |

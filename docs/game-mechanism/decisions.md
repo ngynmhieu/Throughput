@@ -13,13 +13,15 @@ Concept numbers like [7] refer to the 25 concepts in [knowledge/queueing-mechani
 | D1 | What is the project for? | Learning first; shipping is a bonus |
 | D2 | Main subjects | Queueing theory and game design (other skills may take shortcuts) |
 | D3 | Who learns the theory? | The theory is the hidden engine; players are never pushed to learn it |
-| D4 | Play style | Plan → Watch |
+| D4 | Play style | Plan → Manage (revised): plan the layout, then watch and make manager actions live at 1× |
 | D5 | How levels start | A mix: plain line early, broken designs to fix later |
 | D6 | How smart are passengers? | Obedient by default; independent behaviours unlock per level |
 | D7 | How simulated time moves | Event list (discrete-event simulation) |
 | D8 | Floor space | Always real and limited; full areas block earlier stages |
 | D9 | What counts as success | One pass goal + optional extra challenges |
 | D10 | Perceived wait | A real measure (happiness), introduced mid-game |
+| D11 | Result preview | None. Players find out by running and managing |
+| D12 | Random events | "Random but fair": a fixed event deck per level, random timing per attempt |
 
 ---
 
@@ -38,14 +40,30 @@ Concept numbers like [7] refer to the 25 concepts in [knowledge/queueing-mechani
 - **Choice:** no forced learning, no quizzes, no stars that test understanding. The result only answers "did the design get through the level?", however the player got there.
 - **Means:** accuracy of the simulation is the *developer's* standard. Checking against Erlang C/A is a developer test, not a player feature. A "Why?" panel or prediction may exist as optional flavour.
 
-## D4. Plan → Watch
+## D4. Plan → Manage (revised 2026-10-10)
 
-- **Choice:** the player designs the system, presses Run, and watches. There are no changes during a run. If it fails, they edit and run again.
+- **Choice:** the player designs the layout in Plan, presses Run, then **watches and manages the run live**.
+  - **Layout is frozen during the run:** no moving barriers or building lanes while passengers stand there.
+  - **Manager actions are allowed during the run:**
+
+    | Action | Example | Mechanism |
+    |---|---|---|
+    | Change routing | Entrance: "shortest line" → "by type" | Routing [12] |
+    | Open / close a lane | Open Lane 4 now (setup time applies) | Staffing, setup time [19] |
+    | Move staff | Officer from ID check to the scanner | Bottleneck [6] |
+    | Toggle lane rules | Make Lane 2 express (≤1 bag) or priority | Express, priority [10, 11] |
+    | Turn signs on/off | Show "≈ wait" signs | Perceived wait [22] |
+
+  - **Speed is 1× only.** There's a **pause**, and manager actions still work while paused, so the player can stop and think (keeps P4).
+  - After the run: the results, plus a **replay** that can be scrubbed to review what happened.
+- **Why:** the user wants players to view and *manage* the process, not only watch it.
 - **Means:**
-  - "Fail" is a run that missed its goal, not a game-over.
-  - Speed controls (1×/2×/4×, pause to inspect, skip to results) are essential.
-  - Dynamic behaviour must be **set up before the run**, so open/close rules [18] become the core of the rule system, not a late-game extra.
-  - The "choose 1 of 2 upgrades" idea from the original notes (a real-time roguelite pattern) no longer fits. Dropped unless revisited.
+  - "Fail" is a run that missed its goal, not a game-over. Edit the plan and run again.
+  - Waves must be short in real time (about 3–6 minutes each), because there's no fast-forward.
+  - Open/close rules [18] are still useful: they automate what the player would otherwise do by hand.
+  - P3 ("Fair, not lucky"): with the run's seed, the same plan plus the same actions at the same times gives the same result, so replays are exact.
+  - The "choose 1 of 2 upgrades" idea from the original notes no longer fits. Dropped unless revisited.
+- **History:** originally "Plan → Watch" (no changes during a run, speeds 1×/2×/4×). Revised the same day.
 - **Parked:** how players write rules (settings on objects vs if-then cards vs text code). This will be decided with the game design pillars. The current leaning is settings on objects first, if-then cards later, no text code.
 
 ## D5. Level starts: a mix
@@ -102,6 +120,23 @@ Concept numbers like [7] refer to the 25 concepts in [knowledge/queueing-mechani
 - **Why:** it's the game's most distinctive idea. Most queue games only measure speed, and "make it *feel* faster" is a fresh puzzle with a cheap tool set.
 
 ---
+
+## D11. No result preview
+
+- **Choice:** Plan shows no predicted result (not even a rough estimate). The player finds out by running, watching and managing.
+- **Why:** the user wants the run to be the real test, where the player must watch and react.
+- **Means:** in-run feedback (busy gauges, wait signs, the blueprint map) becomes the player's main information. Kingman's formula stays a developer tool for tuning levels.
+
+## D12. Random events: random but fair
+
+- **Choice:** each level has an **event deck** with a fixed amount of trouble, e.g. "1 scanner breakdown, 1 delayed flight (two waves arrive together), 1 tour group". **When** and **where** each event hits is random per attempt. Passenger mix and service times also vary per attempt, within the level's fixed rates.
+- **Why:** surprises force the player to watch and manage live (D4), while every attempt stays equally hard. A rejected alternative was fully random events, which make pass or fail depend on luck. Another was hidden but fixed events, which turn managing into memorising.
+- **Means:**
+  - P3 was rewritten as **"Fair, not lucky"** (see pillars).
+  - Each attempt has its own run seed, saved with the run, so any run can be replayed exactly.
+  - The level card tells the player what *kind* of trouble to expect, never when.
+  - Every event needs a matching manager action (the pairing rule): a breakdown → open another lane / move staff; a delayed flight → staffing; a tour group → routing / express lane.
+  - Levels are balanced by simulating many seeds headless and checking that a good plan passes reliably.
 
 ## Still open
 

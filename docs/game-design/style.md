@@ -2,7 +2,7 @@
 
 How Throughput looks and feels. Exact values (colours, sizes, type, components) live in the [Throughput Design System](https://claude.ai/artifact/Ux7qp2fzRbByeqNN4DHrMH). This file records the **decisions and direction** behind them, so they can be updated in one place.
 
-Every choice here serves the [pillars](pillars.md): P1 every fix has a cost, P2 the cause is always visible, P3 same plan same result, P4 calm not frantic.
+Every choice here serves the [pillars](pillars.md): P1 every fix has a cost, P2 the cause is always visible, P3 fair, not lucky, P4 calm not frantic.
 
 ---
 
@@ -67,7 +67,8 @@ Every choice here serves the [pillars](pillars.md): P1 every fix has a cost, P2 
 
 - Labels float over the world: lane labels with busy gauges, "≈ x min" wait signs, and mood bubbles (😊 😐 😡) that appear only when a passenger's mood changes.
 - Fonts: Nunito (rounded) for reading, IBM Plex Mono for numbers that change.
-- Screen layout: level and goal top-left, Map top-right, tool tray bottom-centre (Plan) or speed control (Run), Run button bottom-right.
+- Screen layout: level and goal top-left, Map top-right, tool tray bottom-centre (Plan) or the manager-action bar + pause (Run), Run button bottom-right.
+- Runs play at **1× only** with a pause (D4 revised). After a run, a scrubbable replay.
 - Full component list and rules: see the design system.
 
 ## Motion and mood
@@ -97,3 +98,4 @@ Every choice here serves the [pillars](pillars.md): P1 every fix has a cost, P2 
 |---|---|
 | 2026-10-10 | First version: two views, camera, colour, characters (A + B direction), UI, motion, look test result. |
 | 2026-10-10 | Camera pan changed to hold left mouse + drag; edge scrolling removed. |
+| 2026-10-10 | Runs are 1× only with pause; manager actions during runs (D4 revised). Design system RunButton updated. |

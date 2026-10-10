@@ -44,6 +44,8 @@ The toolbox, used during Plan. Early levels start from one plain line, and the p
 | Comfort | Wait-time signs, screens, hidden priority lanes | Perceived wait [22] |
 | Late twist | "Team ownership" trait for dedicated lanes | Ownership [5] |
 
+**Live manager actions (during a run, D4):** change routing, open/close a lane, move staff, toggle lane rules (express/priority), turn signs on/off. Everything else above is Plan-only (layout is frozen during a run).
+
 ## 3. Difficulty: what each level throws at the player
 
 The pressures a level designer turns up.
@@ -61,6 +63,7 @@ The pressures a level designer turns up.
 | Setup time [19] | Rules must fire early |
 | Selfish passengers [14] | Adding capacity can make things worse |
 | Equipment breakdown (new) | A scanner stops for minutes mid-wave |
+| Random events: event deck (D12) | Breakdown, delayed flight (waves merge), tour group: fixed count per level, random timing per attempt |
 | Locked elements (D5) | In "broken" levels, some parts can't be moved |
 | Mixed goals (D9) | Main goal plus extras: wait, fairness, budget |
 
