@@ -1,0 +1,14 @@
+{
+    "name": "Throughput.Game",
+    "rootNamespace": "Throughput.Game",
+    "references": ["Throughput.Sim", "Unity.InputSystem"],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

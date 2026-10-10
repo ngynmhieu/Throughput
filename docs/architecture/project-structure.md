@@ -14,7 +14,7 @@ How the repo is laid out across all phases: Sim, Unity and Blender. Decided 2026
 ## Creating the project
 
 - Let **Unity create it**; never make the folder by hand (it needs generated settings, the package manifest and `.meta` files).
-- Editor: **Unity 6000.3.10f1** (Unity 6.3), template **Universal 3D (URP)**, location `Throughput/Unity`.
+- Editor: **Unity 6000.3.26f1** (Unity 6.3), template **Universal 3D (URP)**, location `Throughput/Unity`.
 - Ways to do it: Unity Hub, `Unity.exe -batchmode -createProject <path> -quit`, or the Unity CLI.
 - After creation, set *Project Settings → Editor*: **Asset Serialization = Force Text**, **Version Control = Visible Meta Files**.
 - This is the **first build step** of phase 1's plan, done after the spec is approved.

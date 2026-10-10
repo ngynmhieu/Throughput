@@ -60,7 +60,7 @@ Instructions for AI agents working on **Throughput**. Read this first, then the 
 
 ## Planned code layout (when code starts)
 
-All code lives in the Unity project (`Unity/Assets/Sim`, `Unity/Assets/Game`), created by Unity 6000.3.10f1, never by hand. See [docs/architecture/project-structure.md](docs/architecture/project-structure.md).
+All code lives in the Unity project (`Unity/Assets/Sim`, `Unity/Assets/Game`), created by Unity 6000.3.26f1, never by hand. See [docs/architecture/project-structure.md](docs/architecture/project-structure.md).
 
 
 | Assembly | Contains | May reference |
