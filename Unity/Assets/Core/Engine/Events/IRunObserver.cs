@@ -13,6 +13,9 @@ namespace Throughput.Core.Engine.Events
 
         void OnEndService(double time, Station station, Passenger passenger);
 
+        /// <summary>The passenger's patience ran out and they left the line (and the checkpoint).</summary>
+        void OnRenege(double time, Station station, Passenger passenger);
+
         void OnExit(double time, Passenger passenger);
     }
 }

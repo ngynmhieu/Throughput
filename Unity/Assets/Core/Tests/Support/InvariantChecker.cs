@@ -36,6 +36,12 @@ namespace Throughput.Core.Tests.Support
                 AssertNotBefore(p, p.ServiceStart, p.QueueJoin, "started service before joining the line");
                 AssertNotBefore(p, p.ServiceEnd, p.ServiceStart, "finished before starting");
                 AssertNotBefore(p, p.Exit, p.ServiceEnd, "left before finishing");
+                AssertNotBefore(p, p.Renege, p.QueueJoin, "gave up before joining the line");
+                if (p.HasReneged)
+                {
+                    Assert.That(double.IsNaN(p.QueueJoin), Is.False, $"Passenger {p.Id} gave up without being in a line.");
+                    Assert.That(double.IsNaN(p.ServiceStart), Is.True, $"Passenger {p.Id} was served and also gave up.");
+                }
             }
         }
 
@@ -49,13 +55,17 @@ namespace Throughput.Core.Tests.Support
         {
             int arrived = log.Passengers.Count;
             int exited = 0;
+            int reneged = 0;
             foreach (PassengerRecord p in log.Passengers)
+            {
                 if (p.HasExited) exited++;
-            int inside = arrived - exited;
+                if (p.HasReneged) reneged++;
+            }
+            int inside = arrived - exited - reneged;
 
             Assert.That(inside, Is.GreaterThanOrEqualTo(0), "More passengers left than arrived.");
             if (expectDrained)
-                Assert.That(inside, Is.EqualTo(0), $"{inside} passengers never left (arrived {arrived}, exited {exited}).");
+                Assert.That(inside, Is.EqualTo(0), $"{inside} passengers never left (arrived {arrived}, exited {exited}, gave up {reneged}).");
         }
 
         private static void AssertStaffLimit(RunLog log, IReadOnlyDictionary<string, int> staffByStation)
@@ -73,29 +83,36 @@ namespace Throughput.Core.Tests.Support
         /// <summary>
         /// FIFO: at each station, people start service in the order they joined the line.
         /// Average-wait tests can't see this (any work-conserving order gives the same M/M/1 mean).
+        /// People who give up leave from anywhere in the line; everyone behind them keeps their order.
         /// </summary>
         private static void AssertFirstComeFirstServed(RunLog log)
         {
-            var joined = new Dictionary<string, Queue<int>>();
+            var joined = new Dictionary<string, List<int>>();
             foreach (LogEntry e in log.Entries)
             {
                 if (e.Station == null) continue;
-                if (!joined.TryGetValue(e.Station, out Queue<int> line))
+                if (!joined.TryGetValue(e.Station, out List<int> line))
                 {
-                    line = new Queue<int>();
+                    line = new List<int>();
                     joined[e.Station] = line;
                 }
 
                 if (e.Kind == LogKind.JoinQueue)
                 {
-                    line.Enqueue(e.PassengerId);
+                    line.Add(e.PassengerId);
                 }
                 else if (e.Kind == LogKind.StartService)
                 {
                     Assert.That(line.Count, Is.GreaterThan(0), $"Passenger {e.PassengerId} started at '{e.Station}' without joining its line.");
-                    int expected = line.Dequeue();
+                    int expected = line[0];
+                    line.RemoveAt(0);
                     Assert.That(e.PassengerId, Is.EqualTo(expected),
                         $"Not first come, first served at '{e.Station}' at {e.Time}: passenger {e.PassengerId} started before {expected}.");
+                }
+                else if (e.Kind == LogKind.Renege)
+                {
+                    Assert.That(line.Remove(e.PassengerId), Is.True,
+                        $"Passenger {e.PassengerId} gave up at '{e.Station}' at {e.Time} but wasn't in its line.");
                 }
             }
         }

@@ -12,6 +12,7 @@ namespace Throughput.Core.Results
         JoinQueue,
         StartService,
         EndService,
+        Renege,
         Exit,
     }
 
@@ -69,10 +70,14 @@ namespace Throughput.Core.Results
 
         public double Exit { get; internal set; } = double.NaN;
 
-        /// <summary>Time spent in the line before service started.</summary>
-        public double Wait => ServiceStart - QueueJoin;
+        public double Renege { get; internal set; } = double.NaN;
+
+        /// <summary>Time spent in the line: until service started, or until they gave up.</summary>
+        public double Wait => (HasReneged ? Renege : ServiceStart) - QueueJoin;
 
         public bool HasExited => !double.IsNaN(Exit);
+
+        public bool HasReneged => !double.IsNaN(Renege);
     }
 
     /// <summary>Records every passenger and (optionally) every step. Big runs pass keepEntries: false to save memory.</summary>
@@ -117,6 +122,12 @@ namespace Throughput.Core.Results
         {
             _passengers[passenger.Id].ServiceEnd = time;
             Add(time, LogKind.EndService, passenger, station);
+        }
+
+        public void OnRenege(double time, Station station, Passenger passenger)
+        {
+            _passengers[passenger.Id].Renege = time;
+            Add(time, LogKind.Renege, passenger, station);
         }
 
         public void OnExit(double time, Passenger passenger)
