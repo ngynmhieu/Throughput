@@ -1,10 +1,12 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using NUnit.Framework;
 using Throughput.Core.Results;
 using Throughput.Core.Sim.Events;
 using Throughput.Core.Sim.Network;
 using Throughput.Core.Sim.Randomness;
+using Throughput.Core.Tests.Support;
 
 namespace Throughput.Core.Tests.Sim
 {
@@ -21,6 +23,9 @@ namespace Throughput.Core.Tests.Sim
             return (sim, log);
         }
 
+        private static void CheckInvariants(RunLog log, int staff) =>
+            InvariantChecker.AssertAll(log, new Dictionary<string, int> { { "desk", staff } });
+
         [Test]
         public void OneDesk_Fifo_HandTimeline()
         {
@@ -35,6 +40,7 @@ namespace Throughput.Core.Tests.Sim
             Assert.That(p.Select(r => r.Wait), Is.EqualTo(new[] { 0.0, 90.0, 180.0 }));
             Assert.That(p.Select(r => r.Exit), Is.EqualTo(new[] { 120.0, 240.0, 360.0 }));
             Assert.That(sim.Now, Is.EqualTo(360.0));
+            CheckInvariants(log, staff: 1);
         }
 
         [Test]
@@ -50,6 +56,7 @@ namespace Throughput.Core.Tests.Sim
             {
                 LogKind.EndService, LogKind.Exit, LogKind.Arrive, LogKind.JoinQueue, LogKind.StartService,
             }));
+            CheckInvariants(log, staff: 1);
         }
 
         [Test]
@@ -60,6 +67,7 @@ namespace Throughput.Core.Tests.Sim
 
             Assert.That(log.Passengers[1].ServiceStart, Is.EqualTo(500.0));
             Assert.That(log.Passengers[1].Wait, Is.EqualTo(0.0));
+            CheckInvariants(log, staff: 1);
         }
 
         [Test]
@@ -71,6 +79,7 @@ namespace Throughput.Core.Tests.Sim
 
             Assert.That(log.Passengers.Select(r => r.ServiceStart), Is.EqualTo(new[] { 0.0, 0.0, 100.0 }));
             Assert.That(log.Entries.Max(e => e.Busy), Is.EqualTo(2));
+            CheckInvariants(log, staff: 2);
         }
 
         [Test]
@@ -85,6 +94,7 @@ namespace Throughput.Core.Tests.Sim
             sim.Run();
 
             Assert.That(log.Passengers.Select(r => r.Arrive), Is.EqualTo(new[] { 10.0, 20.0, 30.0 }));
+            CheckInvariants(log, staff: 1);
         }
 
         [Test]
@@ -99,6 +109,7 @@ namespace Throughput.Core.Tests.Sim
             pieces.Run();
 
             Assert.That(piecesLog.Entries.Select(e => e.ToString()), Is.EqualTo(wholeLog.Entries.Select(e => e.ToString())));
+            CheckInvariants(piecesLog, staff: 1);
         }
 
         [Test]
