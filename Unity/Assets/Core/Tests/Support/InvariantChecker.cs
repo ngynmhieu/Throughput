@@ -10,12 +10,15 @@ namespace Throughput.Core.Tests.Support
     /// </summary>
     public static class InvariantChecker
     {
-        public static void AssertAll(RunLog log, IReadOnlyDictionary<string, int> staffByStation, bool expectDrained = true)
+        public static void AssertAll(RunLog log, IReadOnlyDictionary<string, int> staffByStation, bool expectDrained = true,
+            IReadOnlyDictionary<string, int> lineCapacity = null)
         {
             AssertTimeNeverGoesBackward(log);
             AssertJourneysInOrder(log);
             AssertConservation(log, expectDrained);
             AssertStaffLimit(log, staffByStation);
+            if (lineCapacity != null)
+                AssertLineCapacity(log, lineCapacity);
             AssertFirstComeFirstServed(log);
             if (expectDrained)
                 AssertLittlesLaw(log);
@@ -32,16 +35,24 @@ namespace Throughput.Core.Tests.Support
         {
             foreach (PassengerRecord p in log.Passengers)
             {
-                AssertNotBefore(p, p.QueueJoin, p.Arrive, "joined the line before arriving");
-                AssertNotBefore(p, p.ServiceStart, p.QueueJoin, "started service before joining the line");
-                AssertNotBefore(p, p.ServiceEnd, p.ServiceStart, "finished before starting");
-                AssertNotBefore(p, p.Exit, p.ServiceEnd, "left before finishing");
-                AssertNotBefore(p, p.Renege, p.QueueJoin, "gave up before joining the line");
-                if (p.HasReneged)
+                double ready = p.Arrive;
+                for (int i = 0; i < p.Visits.Count; i++)
                 {
-                    Assert.That(double.IsNaN(p.QueueJoin), Is.False, $"Passenger {p.Id} gave up without being in a line.");
-                    Assert.That(double.IsNaN(p.ServiceStart), Is.True, $"Passenger {p.Id} was served and also gave up.");
+                    Visit v = p.Visits[i];
+                    string at = $"at '{v.Station}'";
+                    AssertNotBefore(p, v.QueueJoin, ready, $"joined the line {at} before getting there");
+                    AssertNotBefore(p, v.ServiceStart, v.QueueJoin, $"started service {at} before joining the line");
+                    AssertNotBefore(p, v.ServiceEnd, v.ServiceStart, $"finished {at} before starting");
+                    AssertNotBefore(p, v.Unblocked, v.ServiceEnd, $"was released {at} before finishing");
+                    AssertNotBefore(p, v.Renege, v.QueueJoin, $"gave up {at} before joining the line");
+                    if (v.HasReneged)
+                    {
+                        Assert.That(double.IsNaN(v.ServiceStart), Is.True, $"Passenger {p.Id} was served {at} and also gave up.");
+                        Assert.That(i, Is.EqualTo(p.Visits.Count - 1), $"Passenger {p.Id} gave up {at} but kept going.");
+                    }
+                    ready = v.LeftAt;
                 }
+                AssertNotBefore(p, p.Exit, ready, "left before finishing");
             }
         }
 
@@ -77,6 +88,20 @@ namespace Throughput.Core.Tests.Support
                 Assert.That(e.Busy, Is.InRange(0, staffByStation[e.Station]),
                     $"Station '{e.Station}' had {e.Busy} busy staff (limit {staffByStation[e.Station]}) at {e.Time}.");
                 Assert.That(e.QueueLength, Is.GreaterThanOrEqualTo(0), $"Negative queue at '{e.Station}'.");
+            }
+        }
+
+        /// <summary>
+        /// D8: a line fed by stations never holds more than its capacity. Only list lines fed by stations:
+        /// a line fed straight from a Source takes everyone (they spill back into the hall, decision B4).
+        /// </summary>
+        private static void AssertLineCapacity(RunLog log, IReadOnlyDictionary<string, int> lineCapacity)
+        {
+            foreach (LogEntry e in log.Entries)
+            {
+                if (e.Station == null || !lineCapacity.TryGetValue(e.Station, out int cap)) continue;
+                Assert.That(e.QueueLength, Is.LessThanOrEqualTo(cap),
+                    $"Line at '{e.Station}' held {e.QueueLength} people (capacity {cap}) at {e.Time}.");
             }
         }
 
@@ -144,11 +169,11 @@ namespace Throughput.Core.Tests.Support
 
             var waits = new Dictionary<string, double>();
             foreach (PassengerRecord p in log.Passengers)
-            {
-                if (p.Station == null) continue;
-                waits.TryGetValue(p.Station, out double sum);
-                waits[p.Station] = sum + p.Wait;
-            }
+                foreach (Visit v in p.Visits)
+                {
+                    waits.TryGetValue(v.Station, out double sum);
+                    waits[v.Station] = sum + v.Wait;
+                }
 
             foreach (KeyValuePair<string, double> kv in area)
             {

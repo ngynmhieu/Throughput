@@ -66,19 +66,6 @@ namespace Throughput.Core.Tests.Invariants
         }
 
         [Test]
-        public void Fails_WhenSomeoneGivesUpWithoutBeingInLine()
-        {
-            var desk = new Station("desk", 1, new Deterministic(1.0), new Pcg32(1UL, 1UL));
-            var p0 = new Passenger(0, 0.0);
-            var log = new RunLog();
-            log.OnArrive(0.0, p0);
-            log.OnRenege(5.0, desk, p0);
-
-            var staff = new Dictionary<string, int> { { "desk", 1 } };
-            Assert.Throws<AssertionException>(() => InvariantChecker.AssertAll(log, staff, expectDrained: false));
-        }
-
-        [Test]
         public void Passes_OnEmptyRun()
         {
             InvariantChecker.AssertAll(new RunLog(), NoStations);
