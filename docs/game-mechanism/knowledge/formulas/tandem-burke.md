@@ -56,4 +56,4 @@ Total time in lines: 8 min
 - [ ] Read
 - [ ] Questions done
 - [x] Implemented (validation test)
-- [ ] Strict test passes
+- [x] Strict test passes

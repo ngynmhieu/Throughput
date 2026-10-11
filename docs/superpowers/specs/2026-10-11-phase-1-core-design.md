@@ -74,7 +74,7 @@ Each formula has its own learning page in [knowledge/formulas/](../../game-mecha
 
 - [x] Conservation: arrived = exited + reneged + still inside
 - [x] Time never goes backward in the timeline
-- [ ] No queue or buffer ever exceeds its capacity (D8)
+- [x] No queue or buffer ever exceeds its capacity (D8) (lines fed by stations; arrivals from a Source spill back, B4)
 - [ ] A closed or broken station never starts a service
 - [x] Each station serves at most `staff` people at once
 - [x] Little's Law holds for each queue (within a small tolerance over a long run)
@@ -135,10 +135,11 @@ Each slice is **test-first**: write the test from a hand calculation or a formul
 - [x] **Validation: Erlang A**
 
 ### S5: Chain of stages + blocking
-- [ ] `Buffer` with capacity, `Router`, walk time on edges
-- [ ] Blocking after service (D8): `Blocked` / `Unblocked`
-- [ ] Hand tests: full buffer stops the scanner; space frees → the chain restarts in the right order
-- [ ] Invariants on a 3-stage chain (ID check → scanner → exit)
+- [x] Line capacity (the "buffer", B1), walk time on edges
+- Router moved to S8 (B2)
+- [x] Blocking after service (D8): `Blocked` / `Unblocked`
+- [x] Hand tests: full buffer stops the scanner; space frees → the chain restarts in the right order
+- [x] Invariants on a 3-stage chain (built as ID check → scanner → bag check → exit, with blocking and giving up)
 
 ### S6: Timeline, snapshots, re-simulate from now
 - [ ] `Timeline` of records; snapshot every 5 game-seconds (full state incl. random-stream states)
@@ -154,6 +155,7 @@ Each slice is **test-first**: write the test from a hand calculation or a formul
 - [ ] Tests: sample level JSON → expected network; invalid plan → helpful error
 
 ### S8: Starter policies, rules, events, actions
+- [ ] `Router` + routing policies (moved from S5)
 - [ ] Routing: shortest line (`IRoutingPolicy`)
 - [ ] Staffing rule: open when queue > X, close when < Y, with setup time (`IStaffingRule`, `CheckRule` event)
 - [ ] Event deck: scanner breakdown at a random time from the event-timing stream (`Breakdown` / `Repaired`)
@@ -188,8 +190,8 @@ Each slice is **test-first**: write the test from a hand calculation or a formul
 
 **Notes for later slices (from the part 1 review, 2026-10-11):**
 - **S4 (reneging): Done.** `PassengerRecord.Wait` now counts time in line until service starts *or* until the passenger gives up, and Little's Law passes with renegers.
-- **S5 (several stations):** `PassengerRecord` holds one visit (`Station`, `QueueJoin`, `Wait`); make it per-visit, and `Station.Finish` must hand passengers to the next stage instead of calling Exit.
-- **S5, from the S4 review:** a `Renege` alarm is keyed on (station, passenger). If a passenger can come back to the **same** station (re-screen, loop), an old alarm could remove them early: give each visit a number and ignore alarms from an older visit. Also use one patience stream per station (`patience:<station>`), not one shared stream.
+- **S5 (several stations): Done.** `PassengerRecord.Visits` holds one `Visit` per station, and `Station.Finish` hands passengers on to the next stage.
+- **S8 (routing), from the S4 review:** a `Renege` alarm is keyed on (station, passenger). If a passenger can come back to the **same** station (re-screen, loop), an old alarm could remove them early: give each visit a number and ignore alarms from an older visit. Also use one patience stream per station (`patience:<station>`), not one shared stream.
 - **S6 (re-sim):** `Runner.Run(until)` leaves `Now` at the last event, not at `until`.
 - **S6/S9, from the S4 review:** ignored `Renege` alarms still move `Now`, so `Now` after a run is **not** the run's end. Timeline length, replay length and throughput must use the time of the last event that changed something (track a `LastActiveTime`). Stale alarms also stay in the event list; a snapshot copies them (harmless, slightly bigger).
 - **Any slice:** `Run()` with a renewal source and no stop time never ends; the starter levels must always set a wave end.
@@ -203,7 +205,7 @@ Each slice is **test-first**: write the test from a hand calculation or a formul
 | S2 | Several desks, Erlang C | Done (strict Erlang C passed 2026-10-11: c 2/3/5 at ρ 0.7 and 0.9, all within 0.7%) |
 | S3 | Service variability, P-K, Kingman | Done (2026-10-11: strict P-K at ρ 0.8/0.9, Cs 0/0.5/1, all within 0.7%; Kingman 5 cases within 7.7%, trend ratio 0.396 vs 0.400) |
 | S4 | Reneging, Erlang A | Done (strict Erlang A passed 2026-10-11: c 2/3/1 at ρ 0.9/1.2/1.0; wait and share who gave up all within 0.2%) |
-| S5 | Stages, buffers, blocking | Not started |
+| S5 | Stages, buffers, blocking | Done (2026-10-11: strict tandem vs Burke, ID 4.019 / scanner 4.039 vs 4.000; blocking hand tests and busy 3-stage invariants pass) |
 | S6 | Timeline, snapshots, re-sim | Not started |
 | S7 | Level/plan JSON, layout compiler | Not started |
 | S8 | Policies, rules, breakdown, manager action | Not started |
@@ -214,6 +216,15 @@ Each slice is **test-first**: write the test from a hand calculation or a formul
 - R2: lazy cancellation: the `Renege` event stays in the list and is ignored if the passenger already started service.
 - R3: a passenger who gives up leaves the checkpoint (`OnRenege`, not `OnExit`); their wait is the time until they gave up.
 - R4: `IBehaviour` has one method (`OnJoinQueue`) until a later behaviour needs more.
+
+**S5 decisions (2026-10-11, plan part 4):**
+- B1: the "buffer" is the next station's line with a capacity; no separate `Buffer` node.
+- B2: `Router` moves to S8 with the routing policies; S5 is a straight chain.
+- B3: walkers reserve their spot in the next line when they leave a desk ("full" = in line + walking there).
+- B4: arrivals from a Source never block; they spill back into the hall (D8). Capacity only stops stations feeding a line.
+- B5: a blocked desk counts as busy; release is first blocked, first released, whenever the line shrinks, and can cascade upstream.
+- B6: same-time order `EndService` → `Renege` → `Reach` → `Arrive`.
+- B7: per-visit records; `Station`/`QueueJoin`/`ServiceStart`/`ServiceEnd`/`Wait` stay as first-visit shortcuts.
 
 ## Change log
 

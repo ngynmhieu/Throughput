@@ -11,13 +11,14 @@ See [overview.md](overview.md) for where this sits (decisions A1–A4).
 | Node | What it is | Key numbers |
 |---|---|---|
 | `Source` | Where passengers appear | Arrival schedule (flight waves), passenger mix |
-| `Queue` | A line that holds people in order | Capacity (from floor area), discipline (FIFO / express / priority) |
 | `Station` | A stage with staff serving one person each | Staff count, service time per passenger type, setup time |
-| `Buffer` | A limited waiting space between stages | Capacity; when full, the stage feeding it **blocks** (D8) |
+| Line (inside `Station`) | The line in front of a desk; its capacity is the waiting area (B1) | Capacity; when full, the station feeding it **blocks** (D8). Arrivals from a Source always join and spill back (B4) |
 | `Router` | A point where a choice is made | Policy: shortest line / least work / random / by type / passenger choice |
 | `Sink` | Exit | — |
 
 Edges between nodes carry a **walk time** (from distance in the layout).
+
+Walkers reserve their spot when they leave a desk (B3). Release after blocking is first blocked, first released, and can cascade upstream (B5). `Router` arrives in S8 (B2).
 
 ## The event loop
 
@@ -29,7 +30,7 @@ while events remain and time < wave end:
 
 **Event types:** `Arrive`, `JoinQueue`, `StartService`, `EndService`, `Blocked`, `Unblocked`, `Renege`, `Balk`, `SwitchLane`, `StaffOpen`, `StaffClose`, `SetupDone`, `MoodChange`, `Exit`, `CheckRule` (re-checks a timed rule condition such as "queue over 20 for 30 s").
 
-Same-time order (built so far): `EndService` → `Renege` → `Arrive`.
+Same-time order (built so far): `EndService` → `Renege` → `Reach` → `Arrive`.
 
 - Threshold rules are re-checked whenever a queue length changes. A "for N seconds" condition schedules its own `CheckRule` event.
 - **Blocking (D8):** before a station sends a passenger onward, it checks for room downstream. If there is none, the station stays occupied (`Blocked`) until space frees up (`Unblocked`). This is the blocking-after-service rule.
