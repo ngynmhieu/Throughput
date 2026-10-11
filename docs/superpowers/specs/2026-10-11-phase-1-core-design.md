@@ -48,7 +48,7 @@ Assets/Core/
 │   ├── Events/     Event, EventList (priority queue), Simulator (the loop)
 │   ├── Policies/   IDiscipline, IRoutingPolicy, IStaffingRule + starters
 │   ├── Behaviours/ IBehaviour + Reneging
-│   └── Random/     Rng (PCG32), RngStreams, Distributions   ← new folder
+│   └── Randomness/ Pcg32, RngStreams, distributions   ← new folder ("Random" would clash with System.Random)
 ├── Timeline/   TimelineRecord, Timeline, Snapshot
 ├── Results/    RunStats, Results (goal check)
 └── Tests/      one folder per slice + Validation/ + Invariants/
@@ -84,7 +84,9 @@ Each formula has its own learning page in [knowledge/formulas/](../../game-mecha
 | Tier | NUnit category | Runs | Tolerance | Size |
 |---|---|---|---|---|
 | Fast | (none) | Every time, all tests | Theory within **±10%** | 1 seed, ~20k passengers |
-| Strict | `[Category("Strict")]` | Before closing a slice | 95% confidence interval contains the theory value, and error ≤ **3%** | 10+ seeds, ~200k passengers each, warm-up discarded |
+| Strict | `[Category("Strict")]` | Before closing a slice | 99% confidence interval contains the theory value, and error ≤ **3%** | 10+ seeds, ~200k passengers each, warm-up discarded |
+
+(99%, not 95%: with fixed seeds and several cases, a 95% interval would miss by pure luck about 1 time in 20 per case.)
 
 Kingman: **±15%**, only at ρ ≥ 0.8, plus a trend test ("halving the service CV cuts the wait by about what Kingman predicts").
 
@@ -178,8 +180,8 @@ Each slice is **test-first**: write the test from a hand calculation or a formul
 | # | Question | Current lean |
 |---|---|---|
 | Q1 | JSON library for `Throughput.Core` (no Unity, so not `JsonUtility`) | Unity's Newtonsoft package (`com.unity.nuget.newtonsoft-json`) |
-| Q2 | Which distribution for "any CV": gamma or lognormal? | Gamma (exact P-K checks are easy; CV ≤ 1 is natural) |
-| Q3 | Private field style: `_camelCase` or Unity's `m_camelCase` | `_camelCase` ([best-practices](../../../Unity/Docs/best-practices.md) §8) |
+| Q2 | Which distribution for "any CV": gamma or lognormal? | Decided: gamma (2026-10-11). |
+| Q3 | Private field style: `_camelCase` or Unity's `m_camelCase` | Decided: `_camelCase` (2026-10-11). |
 | Q4 | Sample level for S7–S9: simple 2-stage checkpoint, one wave, one breakdown | Yes, keep it tiny |
 
 ## Progress
@@ -203,3 +205,4 @@ Each slice is **test-first**: write the test from a hand calculation or a formul
 |---|---|
 | 2026-10-11 | First draft: proof ladder (S-D1), two test tiers (S-D2), slices S0–S9 |
 | 2026-10-11 | Formula learning pages written and read; spec approved by the user |
+| 2026-10-11 | Plan part 1 written: Randomness folder name, 99% CI for strict tier, Q2 and Q3 decided |
