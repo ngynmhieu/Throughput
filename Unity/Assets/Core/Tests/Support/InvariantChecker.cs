@@ -16,6 +16,7 @@ namespace Throughput.Core.Tests.Support
             AssertJourneysInOrder(log);
             AssertConservation(log, expectDrained);
             AssertStaffLimit(log, staffByStation);
+            AssertFirstComeFirstServed(log);
             if (expectDrained)
                 AssertLittlesLaw(log);
         }
@@ -66,6 +67,36 @@ namespace Throughput.Core.Tests.Support
                 Assert.That(e.Busy, Is.InRange(0, staffByStation[e.Station]),
                     $"Station '{e.Station}' had {e.Busy} busy staff (limit {staffByStation[e.Station]}) at {e.Time}.");
                 Assert.That(e.QueueLength, Is.GreaterThanOrEqualTo(0), $"Negative queue at '{e.Station}'.");
+            }
+        }
+
+        /// <summary>
+        /// FIFO: at each station, people start service in the order they joined the line.
+        /// Average-wait tests can't see this (any work-conserving order gives the same M/M/1 mean).
+        /// </summary>
+        private static void AssertFirstComeFirstServed(RunLog log)
+        {
+            var joined = new Dictionary<string, Queue<int>>();
+            foreach (LogEntry e in log.Entries)
+            {
+                if (e.Station == null) continue;
+                if (!joined.TryGetValue(e.Station, out Queue<int> line))
+                {
+                    line = new Queue<int>();
+                    joined[e.Station] = line;
+                }
+
+                if (e.Kind == LogKind.JoinQueue)
+                {
+                    line.Enqueue(e.PassengerId);
+                }
+                else if (e.Kind == LogKind.StartService)
+                {
+                    Assert.That(line.Count, Is.GreaterThan(0), $"Passenger {e.PassengerId} started at '{e.Station}' without joining its line.");
+                    int expected = line.Dequeue();
+                    Assert.That(e.PassengerId, Is.EqualTo(expected),
+                        $"Not first come, first served at '{e.Station}' at {e.Time}: passenger {e.PassengerId} started before {expected}.");
+                }
             }
         }
 

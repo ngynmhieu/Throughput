@@ -183,6 +183,13 @@ Each slice is **test-first**: write the test from a hand calculation or a formul
 | Q2 | Which distribution for "any CV": gamma or lognormal? | Decided: gamma (2026-10-11). |
 | Q3 | Private field style: `_camelCase` or Unity's `m_camelCase` | Decided: `_camelCase` (2026-10-11). |
 | Q4 | Sample level for S7–S9: simple 2-stage checkpoint, one wave, one breakdown | Yes, keep it tiny |
+| Q5 | Determinism across machines: `Math.Log/Cos/Pow` aren't guaranteed bit-identical across runtimes/CPUs, so a seed may replay differently on another build or platform | **For now: deterministic per build and platform** (replays, re-sim and tests are safe). Revisit only if seeds or replays are shared between machines (own math functions or fixed-point). Found in review 2026-10-11. |
+
+**Notes for later slices (from the part 1 review, 2026-10-11):**
+- **S4 (reneging):** the Little's Law check assumes everyone in line starts service; count a reneger's wait up to the moment they leave.
+- **S5 (several stations):** `PassengerRecord` holds one visit (`Station`, `QueueJoin`, `Wait`); make it per-visit, and `Station.Finish` must hand passengers to the next stage instead of calling Exit.
+- **S6 (re-sim):** `Simulator.Run(until)` leaves `Now` at the last event, not at `until`.
+- **Any slice:** `Run()` with a renewal source and no stop time never ends; the starter levels must always set a wave end.
 
 ## Progress
 
@@ -207,3 +214,4 @@ Each slice is **test-first**: write the test from a hand calculation or a formul
 | 2026-10-11 | Formula learning pages written and read; spec approved by the user |
 | 2026-10-11 | Plan part 1 written: Randomness folder name, 99% CI for strict tier, Q2 and Q3 decided |
 | 2026-10-11 | S0 and S1 done: PCG32, streams, distributions, event loop, invariants, M/M/1 validated |
+| 2026-10-11 | Review: FIFO invariant added; Q5 (determinism per build) and notes for S4–S6 recorded |
