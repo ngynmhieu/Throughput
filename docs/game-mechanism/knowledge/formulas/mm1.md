@@ -96,5 +96,5 @@ A: The nickname for the shape of the wait-vs-busy graph. Like a hockey stick, it
 
 - [x] Read
 - [x] Questions done
-- [ ] Implemented (`Theory.MM1` + validation test)
-- [ ] Strict test passes
+- [x] Implemented (`Theory.MM1` + validation test)
+- [x] Strict test passes

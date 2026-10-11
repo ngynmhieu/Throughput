@@ -35,8 +35,8 @@ Read them in this order; each one builds on the one before.
 
 | # | Formula | File | What it proves | Slice | Read | Questions done | Implemented | Strict test passes |
 |---|---|---|---|---|---|---|---|---|
-| 1 | Little's Law | [littles-law.md](littles-law.md) | The bookkeeping, on **every** setup | S1 | [x] | [x] | [ ] | [ ] |
-| 2 | M/M/1 | [mm1.md](mm1.md) | One line, one desk, randomness | S1 | [x] | [x] | [ ] | [ ] |
+| 1 | Little's Law | [littles-law.md](littles-law.md) | The bookkeeping, on **every** setup | S1 | [x] | [x] | [x] | [x] |
+| 2 | M/M/1 | [mm1.md](mm1.md) | One line, one desk, randomness | S1 | [x] | [x] | [x] | [x] |
 | 3 | Erlang C | [erlang-c.md](erlang-c.md) | Many desks sharing one line | S2 | [x] | [x] | [ ] | [ ] |
 | 4 | Pollaczek–Khinchine | [pollaczek-khinchine.md](pollaczek-khinchine.md) | Service variability, exactly | S3 | [x] | [x] | [ ] | [ ] |
 | 5 | Kingman | [kingman.md](kingman.md) | Arrival + service variability, approximately | S3 | [x] | [x] | [ ] | [ ] |

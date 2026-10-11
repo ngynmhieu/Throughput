@@ -26,7 +26,7 @@ UNITY_NO_CONSENT_PROMPT=1 "$UNITY" "${ARGS[@]}" -- -testCategory "$CATEGORY"
 code=$?
 
 if [ -f "$OUT" ]; then
-  python - "$OUT" <<'PY'
+  PYTHONIOENCODING=utf-8 python - "$OUT" <<'PY'
 import sys, xml.etree.ElementTree as ET
 root = ET.parse(sys.argv[1]).getroot()
 for case in root.iter('test-case'):
@@ -37,6 +37,10 @@ for case in root.iter('test-case'):
             msg = case.find('./reason/message')
         if msg is not None and msg.text:
             print("   " + msg.text.strip().replace("\n", "\n   "))
+for case in root.iter("test-case"):
+    out = case.find("./output")
+    if out is not None and out.text and out.text.strip():
+        print("   " + out.text.strip())
 print(f"total {root.get('total')}, passed {root.get('passed')}, failed {root.get('failed')}, "
       f"inconclusive {root.get('inconclusive')}, skipped {root.get('skipped')}")
 PY

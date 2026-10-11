@@ -72,12 +72,12 @@ Each formula has its own learning page in [knowledge/formulas/](../../game-mecha
 
 ### 5.2 Invariants (checked after every test run)
 
-- [ ] Conservation: arrived = exited + reneged + still inside
-- [ ] Time never goes backward in the timeline
+- [x] Conservation: arrived = exited + reneged + still inside
+- [x] Time never goes backward in the timeline
 - [ ] No queue or buffer ever exceeds its capacity (D8)
 - [ ] A closed or broken station never starts a service
-- [ ] Each station serves at most `staff` people at once
-- [ ] Little's Law holds for each queue (within a small tolerance over a long run)
+- [x] Each station serves at most `staff` people at once
+- [x] Little's Law holds for each queue (within a small tolerance over a long run)
 
 ### 5.3 Test tiers
 
@@ -92,8 +92,8 @@ Kingman: **±15%**, only at ρ ≥ 0.8, plus a trend test ("halving the service 
 
 ### 5.4 Determinism tests
 
-- [ ] Same seed + plan + actions → **identical** timeline (compared record by record)
-- [ ] Different seed → different timeline
+- [x] Same seed + plan + actions → **identical** timeline (compared record by record)
+- [x] Different seed → different timeline
 - [ ] Re-simulating from a snapshot = the same run without stopping
 - [ ] A manager action changes only what it affects (separate random streams)
 
@@ -106,18 +106,18 @@ Kingman: **±15%**, only at ρ ≥ 0.8, plus a trend test ("halving the service 
 Each slice is **test-first**: write the test from a hand calculation or a formula, watch it fail, make it pass. A slice is closed only when its strict-tier tests pass.
 
 ### S0: Foundations
-- [ ] `Rng` (PCG32) + `RngStreams` (one named stream per source, derived from the run seed)
-- [ ] Distributions: exponential, deterministic, and one with a chosen mean and CV (e.g. gamma or lognormal)
-- [ ] Tests: same seed → same numbers; sample mean and CV match the target
-- [ ] Shared test helpers: `InvariantChecker`, statistics (mean, confidence interval), theory formulas (M/M/1, Erlang C, Erlang A, P-K, Kingman)
-- [ ] Tests for the formulas themselves against published worked examples
+- [x] `Rng` (PCG32) + `RngStreams` (one named stream per source, derived from the run seed)
+- [x] Distributions: exponential, deterministic, and one with a chosen mean and CV (e.g. gamma or lognormal)
+- [x] Tests: same seed → same numbers; sample mean and CV match the target
+- [x] Shared test helpers: `InvariantChecker`, statistics (mean, confidence interval), theory formulas (M/M/1, Erlang C, Erlang A, P-K, Kingman)
+- [x] Tests for the formulas themselves against published worked examples
 
 ### S1: Event loop + 1 queue + 1 desk
-- [ ] `EventList`, `Simulator`, `Source`, `Queue` (FIFO), `Station` (1 staff), `Sink`
-- [ ] Hand tests: fixed times → exact timeline (e.g. arrivals 0:00, 0:30, 1:00; 2-min service)
-- [ ] Event-order tie test (S-D4)
-- [ ] Little's Law invariant wired in
-- [ ] **Validation: M/M/1** (fast + strict)
+- [x] `EventList`, `Simulator`, `Source`, `Queue` (FIFO), `Station` (1 staff), `Sink`
+- [x] Hand tests: fixed times → exact timeline (e.g. arrivals 0:00, 0:30, 1:00; 2-min service)
+- [x] Event-order tie test (S-D4)
+- [x] Little's Law invariant wired in
+- [x] **Validation: M/M/1** (fast + strict)
 
 ### S2: Several desks
 - [ ] `Station` with c staff
@@ -188,8 +188,8 @@ Each slice is **test-first**: write the test from a hand calculation or a formul
 
 | Slice | What | Status |
 |---|---|---|
-| S0 | Foundations: random, distributions, test helpers | Not started |
-| S1 | Event loop, 1 desk, M/M/1 | Not started |
+| S0 | Foundations: random, distributions, test helpers | Done |
+| S1 | Event loop, 1 desk, M/M/1 | Done (strict M/M/1 passed 2026-10-11: ρ 0.5/0.8/0.9 within 0.2/0.5/0.4%) |
 | S2 | Several desks, Erlang C | Not started |
 | S3 | Service variability, P-K, Kingman | Not started |
 | S4 | Reneging, Erlang A | Not started |
@@ -206,3 +206,4 @@ Each slice is **test-first**: write the test from a hand calculation or a formul
 | 2026-10-11 | First draft: proof ladder (S-D1), two test tiers (S-D2), slices S0–S9 |
 | 2026-10-11 | Formula learning pages written and read; spec approved by the user |
 | 2026-10-11 | Plan part 1 written: Randomness folder name, 99% CI for strict tier, Q2 and Q3 decided |
+| 2026-10-11 | S0 and S1 done: PCG32, streams, distributions, event loop, invariants, M/M/1 validated |

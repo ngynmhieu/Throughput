@@ -79,5 +79,5 @@ $$
 
 - [x] Read
 - [x] Questions done
-- [ ] Implemented (invariant in `InvariantChecker`)
-- [ ] Passes on every test
+- [x] Implemented (invariant in `InvariantChecker`)
+- [x] Passes on every test
