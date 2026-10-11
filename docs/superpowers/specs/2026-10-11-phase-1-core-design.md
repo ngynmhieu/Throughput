@@ -147,12 +147,12 @@ Each slice is **test-first**: write the test from a hand calculation or a formul
 - Snapshots and re-simulate-from-snapshot dropped: A2 revised to "simulate as you watch" (2026-10-11)
 
 ### S7: Level + plan data and the layout compiler
-- [ ] `LevelDef` (waves, passenger mix, event deck, space, goal) and `PlanDef` (placed objects, rules) as plain C# classes
-- [ ] JSON reading (library choice: see open question Q1)
-- [ ] `LayoutCompiler`: plan + level → network, with clear errors for invalid plans
-- [ ] Arrival waves: time-varying arrival rate (flight banks)
-- [ ] Realistic time ranges for game levels: `Shifted(min, inner)` (a check always takes at least *min*, plus a random part) and `Bounded(min, max, inner)` (re-roll outside the range) as `IDistribution` wrappers, set per desk in level data. **Formula tests keep pure distributions** (no min/max), or the comparison with theory breaks. Test: samples never leave the range; `Shifted` mean = min + inner mean.
-- [ ] Tests: sample level JSON → expected network; invalid plan → helpful error
+- [x] `LevelDef` (waves, desk types, patience, space, goal) and `PlanDef` (a chain of stages, as numbers: L1) as plain C# classes; passenger mix and event deck come with S8/S9 (L9)
+- [x] JSON reading (Newtonsoft, L3)
+- [x] `LayoutCompiler`: plan + level → network, with clear errors for invalid plans
+- [x] Arrival waves: time-varying arrival rate (flight banks)
+- [x] Realistic time ranges for game levels: `Shifted(min, inner)` (a check always takes at least *min*, plus a random part) and `Bounded(min, max, inner)` (re-roll outside the range) as `IDistribution` wrappers, set per desk in level data. **Formula tests keep pure distributions** (no min/max), or the comparison with theory breaks. Test: samples never leave the range; `Shifted` mean = min + inner mean.
+- [x] Tests: sample level JSON → expected network; invalid plan → helpful error
 
 ### S8: Starter policies, rules, events, actions
 - [ ] `Router` + routing policies (moved from S5)
@@ -183,7 +183,7 @@ Each slice is **test-first**: write the test from a hand calculation or a formul
 
 | # | Question | Current lean |
 |---|---|---|
-| Q1 | JSON library for `Throughput.Core` (no Unity, so not `JsonUtility`) | Unity's Newtonsoft package (`com.unity.nuget.newtonsoft-json`) |
+| Q1 | JSON library for `Throughput.Core` (no Unity, so not `JsonUtility`) | **Decided: Unity's Newtonsoft package (2026-10-11, L3).** Unknown fields are errors. |
 | Q2 | Which distribution for "any CV": gamma or lognormal? | Decided: gamma (2026-10-11). |
 | Q3 | Private field style: `_camelCase` or Unity's `m_camelCase` | Decided: `_camelCase` (2026-10-11). |
 | Q4 | Sample level for S7–S9: simple 2-stage checkpoint, one wave, one breakdown | Yes, keep it tiny |
@@ -194,12 +194,13 @@ Each slice is **test-first**: write the test from a hand calculation or a formul
 - **S5 (several stations): Done.** `PassengerRecord.Visits` holds one `Visit` per station, and `Station.Finish` hands passengers on to the next stage.
 - **S8 (routing), from the S4 review:** a `Renege` alarm is keyed on (station, passenger). If a passenger can come back to the **same** station (re-screen, loop), an old alarm could remove them early: give each visit a number and ignore alarms from an older visit. Also use one patience stream per station (`patience:<station>`), not one shared stream.
 - **From the S5 review (2026-10-11), deferred:**
-  - **S7 (layout compiler):** reject loops of stations (A → B → A): with full lines they can block each other forever. Require unique station names (the run log matches visits by name). Decide what happens when a line is fed by both a Source and a station: walk-ins never wait, so desks feeding it can stay blocked (B4).
+  - **S7 (layout compiler): Done by design (L2):** a plan is a chain of stages with each desk type once, so no loops, unique names and no mixed feeding. Revisit when S8 adds lanes and routing. Original note: reject loops of stations (A → B → A): with full lines they can block each other forever. Require unique station names (the run log matches visits by name). Decide what happens when a line is fed by both a Source and a station: walk-ins never wait, so desks feeding it can stay blocked (B4).
   - **S9 (results):** `Station.Busy` counts blocked desks too. Utilisation must use a separate serving vs blocked count, not `Busy / Staff`.
 - **S8 (actions), from the S6 review:** an action at time t is applied **after** `Run(t)`, so it sees the state after every event at or before t; a replay must do exactly the same (`Run(t)`, then apply, then continue). Record each action's exact time (the engine's `Now` when applied), never a sum of frame times. Add a test where an action lands exactly on an event's time. The game shows `LastActiveTime` as a run's end, never `Now`.
 - **S6: Done.** `Runner.Run(until)` now leaves `Now` exactly at `until`.
 - **S6/S9, from the S4 review: Done** (`Runner.LastActiveTime`). Ignored `Renege` alarms still move `Now`, so `Now` after a run is **not** the run's end. Timeline length, replay length and throughput must use the time of the last event that changed something (track a `LastActiveTime`). Stale alarms also stay in the event list (harmless).
-- **Any slice:** `Run()` with a renewal source and no stop time never ends; the starter levels must always set a wave end.
+- **Any slice:** `Run()` with a renewal source and no stop time never ends; the starter levels must always set a wave end. Real levels use waves (L7), which always end.
+- **Sub-project 2 (plan editor), from S7:** the grid must produce the plan numbers (L1). Decide whether every waiting area must have a size (S7 allows unlimited ones, which don't count against space).
 
 ## Progress
 
@@ -212,7 +213,7 @@ Each slice is **test-first**: write the test from a hand calculation or a formul
 | S4 | Reneging, Erlang A | Done (strict Erlang A passed 2026-10-11: c 2/3/1 at ρ 0.9/1.2/1.0; wait and share who gave up all within 0.2%) |
 | S5 | Stages, buffers, blocking | Done (2026-10-11: strict tandem vs Burke, ID 4.019 / scanner 4.039 vs 4.000; blocking hand tests and busy 3-stage invariants pass) |
 | S6 | Stepping (simulate as you watch) | Done (2026-10-11) |
-| S7 | Level/plan JSON, layout compiler | Not started |
+| S7 | Level/plan JSON, layout compiler | Done (2026-10-11) |
 | S8 | Policies, rules, breakdown, manager action | Not started |
 | S9 | Results, fairness | Not started |
 
@@ -239,6 +240,17 @@ Each slice is **test-first**: write the test from a hand calculation or a formul
 - C5: no separate `Timeline` class yet; `RunLog` is the recording.
 - C6: manager actions arrive in S8.
 
+**S7 decisions (2026-10-11, plan part 6):**
+- L1: the plan is numbers, not a grid (user's choice); the grid editor produces these numbers in sub-project 2.
+- L2: a plan is a straight chain of stages, each desk type once; lanes and routing come in S8.
+- L3: Q1 decided: Unity's Newtonsoft package; unknown JSON fields are errors.
+- L4: game time unit is minutes.
+- L5: desk times are `mean`, `cv`, optional `min` (always at least this) and `max` (safety net, re-drawn).
+- L6: the first waiting area has no size (the hall, B4); the level's `space` limits the areas between desks.
+- L7: arrival waves `{start, end, perMinute}`, in order, not overlapping; Poisson within a wave; nothing after the last.
+- L8: the compiler lists every problem at once, in plain English.
+- L9: passenger mix and event deck aren't compiled until S8/S9 use them.
+
 ## Change log
 
 | Date | Change |
@@ -250,3 +262,4 @@ Each slice is **test-first**: write the test from a hand calculation or a formul
 | 2026-10-11 | Review: FIFO invariant added; Q5 (determinism per build) and notes for S4–S6 recorded |
 | 2026-10-11 | S7: added realistic time ranges (minimum + random part, hard max safety net) for game levels |
 | 2026-10-11 | A2 revised: simulate as you watch (no snapshots, no re-sim); S6 rescoped and done |
+| 2026-10-11 | S7 done: level/plan JSON (Q1: Newtonsoft), arrival waves, min/max desk times, layout compiler; plan is numbers (grid in sub-project 2) |

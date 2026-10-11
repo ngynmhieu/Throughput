@@ -82,8 +82,8 @@ run seed ─► │  Simulation core    │  event list · behaviour modules
 | Piece | Job | Knows Unity? |
 |---|---|---|
 | **Level definition** | What the level throws at you: arrival schedule (flight board), passenger mix, event deck (D12), budget, goals, locked elements, enabled passenger behaviours | No (data) |
-| **Plan** | What the player built, as grid data: barriers, lanes, staff, rules, signs | No (data) |
-| **Layout compiler** | Turns Plan + Level into a Network; validates it and reports clear errors | No |
+| **Plan** | What the player built, as grid data: barriers, lanes, staff, rules, signs (phase 1: a chain of stages as numbers; the grid editor turns geometry into these numbers in sub-project 2) | No (data) |
+| **Layout compiler** | Turns Plan + Level into a Network; checks everything and lists all problems at once | No |
 | **Simulation core** | Runs the Network on the event list with the attempt's run seed (plus manager actions); produces the Timeline | No |
 | **Timeline** | Every event with its time, recorded as the run is stepped; replay scrubbing rebuilds the state from it | No |
 | **Results** | Reads the Timeline: main goal, optional extras, worst-off group, happiness (D9, D10) | No |
