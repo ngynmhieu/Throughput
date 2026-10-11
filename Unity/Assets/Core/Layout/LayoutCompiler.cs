@@ -83,22 +83,29 @@ namespace Throughput.Core.Layout
 
         private static void CheckLevel(LevelDef level, List<string> problems)
         {
-            if (level.Waves.Count == 0)
+            List<WaveDef> waves = level.Waves ?? new List<WaveDef>();
+            if (waves.Count == 0)
                 problems.Add("The level has no arrival waves.");
-            for (int i = 0; i < level.Waves.Count; i++)
+            WaveDef previous = null;
+            for (int i = 0; i < waves.Count; i++)
             {
-                WaveDef w = level.Waves[i];
-                if (!(w.Start >= 0) || !(w.End > w.Start))
+                WaveDef w = waves[i];
+                if (w == null) { problems.Add($"Wave {i + 1} is empty."); continue; }
+                if (!(w.Start >= 0) || !(w.End > w.Start) || double.IsInfinity(w.End))
                     problems.Add($"Wave {i + 1} must start at 0 or later and end after it starts ({w.Start}–{w.End}).");
-                if (!(w.PerMinute >= 0))
-                    problems.Add($"Wave {i + 1} can't have a negative rate ({w.PerMinute} per minute).");
-                if (i > 0 && w.Start < level.Waves[i - 1].End)
-                    problems.Add($"Wave {i + 1} starts at {w.Start}, before wave {i} ends ({level.Waves[i - 1].End}).");
+                if (!(w.PerMinute >= 0) || double.IsInfinity(w.PerMinute))
+                    problems.Add($"Wave {i + 1} needs a rate of 0 or more people per minute ({w.PerMinute}).");
+                if (previous != null && w.Start < previous.End)
+                    problems.Add($"Wave {i + 1} starts at {w.Start}, before wave {i} ends ({previous.End}).");
+                previous = w;
             }
 
+            if (level.Stages == null || level.Stages.Count == 0)
+                problems.Add("The level offers no desk types.");
             var names = new HashSet<string>();
-            foreach (StageTypeDef t in level.Stages)
+            foreach (StageTypeDef t in level.Stages ?? new List<StageTypeDef>())
             {
+                if (t == null) { problems.Add("A desk type is empty."); continue; }
                 if (string.IsNullOrEmpty(t.Name)) { problems.Add("A desk type has no name."); continue; }
                 if (!names.Add(t.Name)) problems.Add($"Desk type '{t.Name}' is defined twice.");
                 if (t.MaxStaff < 1) problems.Add($"Desk type '{t.Name}': max staff must be at least 1.");
@@ -125,7 +132,7 @@ namespace Throughput.Core.Layout
 
         private static void CheckPlan(LevelDef level, PlanDef plan, List<string> problems)
         {
-            if (plan.Stages.Count == 0)
+            if (plan.Stages == null || plan.Stages.Count == 0)
             {
                 problems.Add("The plan needs at least one stage.");
                 return;
@@ -136,8 +143,10 @@ namespace Throughput.Core.Layout
             for (int i = 0; i < plan.Stages.Count; i++)
             {
                 PlannedStage ps = plan.Stages[i];
+                if (ps == null) { problems.Add($"Stage {i + 1} is empty."); continue; }
+                if (string.IsNullOrEmpty(ps.Type)) { problems.Add($"Stage {i + 1} doesn't say which desk type it is."); continue; }
                 string name = $"'{ps.Type}'";
-                StageTypeDef type = level.Stages.FirstOrDefault(t => t.Name == ps.Type);
+                StageTypeDef type = (level.Stages ?? new List<StageTypeDef>()).FirstOrDefault(t => t != null && t.Name == ps.Type);
                 if (type == null)
                 {
                     problems.Add($"Stage {i + 1}: this level has no desk type {name}.");

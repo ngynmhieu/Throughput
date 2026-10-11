@@ -89,5 +89,28 @@ namespace Throughput.Core.Tests.Layout
         {
             StringAssert.Contains("at least one", string.Join("\n", LayoutCompiler.Check(Level, new PlanDef())));
         }
+
+        [Test]
+        public void Check_NullsFromJson_AreProblemsNotCrashes()
+        {
+            LevelDef level = LevelJson.ReadLevel(@"{ ""name"": ""x"", ""waves"": null, ""stages"": [ null ], ""space"": 0 }");
+            PlanDef plan = LevelJson.ReadPlan(@"{ ""stages"": [ null, { ""type"": null, ""staff"": 1 } ] }");
+            var problems = LayoutCompiler.Check(level, plan);
+            Assert.That(problems.Count, Is.GreaterThanOrEqualTo(3));
+            Assert.Throws<PlanException>(() => LayoutCompiler.Compile(level, plan, 1UL));
+
+            var nullPlan = LevelJson.ReadPlan(@"{ ""stages"": null }");
+            StringAssert.Contains("at least one", string.Join("\n", LayoutCompiler.Check(Level, nullPlan)));
+        }
+
+        [Test]
+        public void Check_InfiniteWave_IsAProblem()
+        {
+            LevelDef level = Level;
+            level.Waves.Add(new WaveDef { Start = 60, End = double.PositiveInfinity, PerMinute = 1 });
+            level.Waves[0].PerMinute = double.PositiveInfinity;
+            var e = Assert.Throws<PlanException>(() => LayoutCompiler.Compile(level, LevelJson.ReadPlan(SampleLevels.Plan), 1UL));
+            StringAssert.Contains("Wave", string.Join("\n", e.Problems));
+        }
     }
 }

@@ -200,6 +200,7 @@ Each slice is **test-first**: write the test from a hand calculation or a formul
 - **S6: Done.** `Runner.Run(until)` now leaves `Now` exactly at `until`.
 - **S6/S9, from the S4 review: Done** (`Runner.LastActiveTime`). Ignored `Renege` alarms still move `Now`, so `Now` after a run is **not** the run's end. Timeline length, replay length and throughput must use the time of the last event that changed something (track a `LastActiveTime`). Stale alarms also stay in the event list (harmless).
 - **Any slice:** `Run()` with a renewal source and no stop time never ends; the starter levels must always set a wave end. Real levels use waves (L7), which always end.
+- **From the S7 review (2026-10-11), deferred:** `Bounded` reports the untruncated mean, slightly above the real one (keep it out of formula tests; maybe warn when `max` is close to the mean). Desk type names match case-sensitively. **S8 (lanes):** stream names `service:<type>` are unique only because each type is used once; lanes need `service:<station>` per lane.
 - **Sub-project 2 (plan editor), from S7:** the grid must produce the plan numbers (L1). Decide whether every waiting area must have a size (S7 allows unlimited ones, which don't count against space).
 
 ## Progress
