@@ -96,14 +96,15 @@ namespace Throughput.Core.Engine.Network
             TryStart(runner);
         }
 
-        /// <summary>A Renege event fired. Does nothing if the passenger already left the line (service started).</summary>
-        internal void Renege(Runner runner, Passenger passenger)
+        /// <summary>A Renege event fired. Returns false (and does nothing) if the passenger already left the line.</summary>
+        internal bool Renege(Runner runner, Passenger passenger)
         {
-            if (!_inLine.TryGetValue(passenger, out LinkedListNode<Passenger> node)) return;
+            if (!_inLine.TryGetValue(passenger, out LinkedListNode<Passenger> node)) return false;
             _line.Remove(node);
             _inLine.Remove(passenger);
             runner.NotifyRenege(this, passenger);
             ReleaseBlocked(runner);
+            return true;
         }
 
         private void Unblock(Runner runner, Passenger passenger)

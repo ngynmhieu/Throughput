@@ -29,6 +29,12 @@ namespace Throughput.Core.Engine.Events
 
         public double Now { get; private set; }
 
+        /// <summary>Time of the last event that changed something (ignored patience alarms don't count): the run's real end.</summary>
+        public double LastActiveTime { get; private set; }
+
+        /// <summary>Nothing is left on the calendar: no arrivals to come, nobody in the checkpoint.</summary>
+        public bool IsFinished => _started && _events.Count == 0;
+
         public void AddObserver(IRunObserver observer)
         {
             _observers.Add(observer ?? throw new ArgumentNullException(nameof(observer)));
@@ -39,9 +45,16 @@ namespace Throughput.Core.Engine.Events
             _behaviours.Add(behaviour ?? throw new ArgumentNullException(nameof(behaviour)));
         }
 
-        /// <summary>Handles every event up to and including time <paramref name="until"/>. Can be called again to continue.</summary>
+        /// <summary>
+        /// Handles every event up to and including time <paramref name="until"/>, then stops the clock exactly
+        /// at <paramref name="until"/> (when it's finite). Call it again with a later time to continue: this is
+        /// how the game steps the run while the player watches. Run() with no argument runs to the end.
+        /// </summary>
         public void Run(double until = double.PositiveInfinity)
         {
+            if (double.IsNaN(until) || until < Now)
+                throw new ArgumentOutOfRangeException(nameof(until), until, $"Can't run to {until}: the clock is already at {Now}.");
+
             if (!_started)
             {
                 _started = true;
@@ -53,8 +66,12 @@ namespace Throughput.Core.Engine.Events
             {
                 EngineEvent e = _events.Pop();
                 Now = e.Time;
-                Handle(e);
+                if (Handle(e))
+                    LastActiveTime = Now;
             }
+
+            if (!double.IsPositiveInfinity(until))
+                Now = until;
         }
 
         internal void Schedule(double time, EventType type, object node, Passenger passenger)
@@ -100,7 +117,7 @@ namespace Throughput.Core.Engine.Events
             foreach (IRunObserver o in _observers) o.OnExit(Now, p);
         }
 
-        private void Handle(EngineEvent e)
+        private bool Handle(EngineEvent e)
         {
             switch (e.Type)
             {
@@ -110,16 +127,15 @@ namespace Throughput.Core.Engine.Events
                     foreach (IRunObserver o in _observers) o.OnArrive(Now, passenger);
                     ScheduleNextArrival(source);
                     source.Target.Accept(this, passenger);
-                    break;
+                    return true;
                 case EventType.EndService:
                     ((Station)e.Node).Finish(this, e.Passenger);
-                    break;
+                    return true;
                 case EventType.Reach:
                     ((Station)e.Node).Reach(this, e.Passenger);
-                    break;
+                    return true;
                 case EventType.Renege:
-                    ((Station)e.Node).Renege(this, e.Passenger);
-                    break;
+                    return ((Station)e.Node).Renege(this, e.Passenger);
                 default:
                     throw new InvalidOperationException($"Unhandled event type {e.Type}.");
             }
