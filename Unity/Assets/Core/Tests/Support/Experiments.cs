@@ -35,5 +35,15 @@ namespace Throughput.Core.Tests.Support
             }
             return count == 0 ? double.NaN : sum / count;
         }
+
+        /// <summary>
+        /// One run of about <paramref name="passengers"/> arrivals; returns the mean wait in line,
+        /// skipping the first ~1000 arrivals (the line starts empty, which would bias the mean low).
+        /// </summary>
+        public static double MeasureMeanWait(ulong seed, IDistribution gap, IDistribution service, int staff, int passengers)
+        {
+            var log = RunSingleStation(seed, gap, service, staff, stopTime: passengers * gap.Mean, keepEntries: false);
+            return MeanWait(log, warmup: 1000.0 * gap.Mean);
+        }
     }
 }
