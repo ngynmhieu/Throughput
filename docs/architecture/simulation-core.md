@@ -29,6 +29,8 @@ while events remain and time < wave end:
 
 **Event types:** `Arrive`, `JoinQueue`, `StartService`, `EndService`, `Blocked`, `Unblocked`, `Renege`, `Balk`, `SwitchLane`, `StaffOpen`, `StaffClose`, `SetupDone`, `MoodChange`, `Exit`, `CheckRule` (re-checks a timed rule condition such as "queue over 20 for 30 s").
 
+Same-time order (built so far): `EndService` → `Renege` → `Arrive`.
+
 - Threshold rules are re-checked whenever a queue length changes. A "for N seconds" condition schedules its own `CheckRule` event.
 - **Blocking (D8):** before a station sends a passenger onward, it checks for room downstream. If there is none, the station stays occupied (`Blocked`) until space frees up (`Unblocked`). This is the blocking-after-service rule.
 
@@ -58,6 +60,7 @@ Each policy is a small class behind an interface, chosen by the plan.
 
 - Each behaviour reacts to events and may schedule new ones.
 - **Adding a behaviour means adding one module.** The core loop never changes.
+- **How cancelling works:** the `Renege` event is not removed when service starts; when it fires, the station sees the passenger is no longer in line and ignores it (lazy cancellation). `IBehaviour` has one method today (`OnJoinQueue`); later behaviours add methods as they need them.
 - The level definition lists which behaviours are on.
 
 ### 3. Observers: things that only watch

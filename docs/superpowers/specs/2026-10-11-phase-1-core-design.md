@@ -130,9 +130,9 @@ Each slice is **test-first**: write the test from a hand calculation or a formul
 - [x] **Validation: Kingman** at ρ ≥ 0.8 + trend test
 
 ### S4: Reneging (passengers give up)
-- [ ] `IBehaviour` interface + `Reneging` (patience timer, cancelled when service starts)
-- [ ] Hand test: patience 1:00, wait would be 1:30 → passenger leaves at 1:00
-- [ ] **Validation: Erlang A**
+- [x] `IBehaviour` interface + `Reneging` (patience timer, cancelled when service starts)
+- [x] Hand test: patience 1:00, wait would be 1:30 → passenger leaves at 1:00
+- [x] **Validation: Erlang A**
 
 ### S5: Chain of stages + blocking
 - [ ] `Buffer` with capacity, `Router`, walk time on edges
@@ -187,7 +187,7 @@ Each slice is **test-first**: write the test from a hand calculation or a formul
 | Q5 | Determinism across machines: `Math.Log/Cos/Pow` aren't guaranteed bit-identical across runtimes/CPUs, so a seed may replay differently on another build or platform | **For now: deterministic per build and platform** (replays, re-sim and tests are safe). Revisit only if seeds or replays are shared between machines (own math functions or fixed-point). Found in review 2026-10-11. |
 
 **Notes for later slices (from the part 1 review, 2026-10-11):**
-- **S4 (reneging):** the Little's Law check assumes everyone in line starts service; count a reneger's wait up to the moment they leave.
+- **S4 (reneging): Done.** `PassengerRecord.Wait` now counts time in line until service starts *or* until the passenger gives up, and Little's Law passes with renegers.
 - **S5 (several stations):** `PassengerRecord` holds one visit (`Station`, `QueueJoin`, `Wait`); make it per-visit, and `Station.Finish` must hand passengers to the next stage instead of calling Exit.
 - **S6 (re-sim):** `Runner.Run(until)` leaves `Now` at the last event, not at `until`.
 - **Any slice:** `Run()` with a renewal source and no stop time never ends; the starter levels must always set a wave end.
@@ -200,12 +200,18 @@ Each slice is **test-first**: write the test from a hand calculation or a formul
 | S1 | Event loop, 1 desk, M/M/1 | Done (strict M/M/1 passed 2026-10-11: ρ 0.5/0.8/0.9 within 0.2/0.5/0.4%) |
 | S2 | Several desks, Erlang C | Done (strict Erlang C passed 2026-10-11: c 2/3/5 at ρ 0.7 and 0.9, all within 0.7%) |
 | S3 | Service variability, P-K, Kingman | Done (2026-10-11: strict P-K at ρ 0.8/0.9, Cs 0/0.5/1, all within 0.7%; Kingman 5 cases within 7.7%, trend ratio 0.396 vs 0.400) |
-| S4 | Reneging, Erlang A | Not started |
+| S4 | Reneging, Erlang A | Done (strict Erlang A passed 2026-10-11: c 2/3/1 at ρ 0.9/1.2/1.0; wait and share who gave up all within 0.2%) |
 | S5 | Stages, buffers, blocking | Not started |
 | S6 | Timeline, snapshots, re-sim | Not started |
 | S7 | Level/plan JSON, layout compiler | Not started |
 | S8 | Policies, rules, breakdown, manager action | Not started |
 | S9 | Results, fairness | Not started |
+
+**S4 decisions (2026-10-11, plan part 3):**
+- R1: same-time order is `EndService` → `Renege` → `Arrive`, so patience that ends as a desk frees still gets served.
+- R2: lazy cancellation: the `Renege` event stays in the list and is ignored if the passenger already started service.
+- R3: a passenger who gives up leaves the checkpoint (`OnRenege`, not `OnExit`); their wait is the time until they gave up.
+- R4: `IBehaviour` has one method (`OnJoinQueue`) until a later behaviour needs more.
 
 ## Change log
 

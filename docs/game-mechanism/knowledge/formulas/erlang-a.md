@@ -127,5 +127,5 @@ Below n ≈ 4 the crowd grows (up > down); above it, it shrinks (down > up). The
 
 - [x] Read
 - [x] Questions done
-- [ ] Implemented (`Theory.ErlangA` state ladder + validation test)
-- [ ] Strict test passes
+- [x] Implemented (`Theory.ErlangA` state ladder + validation test)
+- [x] Strict test passes

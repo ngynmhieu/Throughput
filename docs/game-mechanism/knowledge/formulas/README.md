@@ -40,7 +40,7 @@ Read them in this order; each one builds on the one before.
 | 3 | Erlang C | [erlang-c.md](erlang-c.md) | Many desks sharing one line | S2 | [x] | [x] | [x] | [x] |
 | 4 | Pollaczek–Khinchine | [pollaczek-khinchine.md](pollaczek-khinchine.md) | Service variability, exactly | S3 | [x] | [x] | [x] | [x] |
 | 5 | Kingman | [kingman.md](kingman.md) | Arrival + service variability, approximately | S3 | [x] | [x] | [x] | [x] |
-| 6 | Erlang A | [erlang-a.md](erlang-a.md) | People giving up | S4 | [x] | [x] | [ ] | [ ] |
+| 6 | Erlang A | [erlang-a.md](erlang-a.md) | People giving up | S4 | [x] | [x] | [x] | [x] |
 
 **Workflow (agreed 2026-10-11):** read a file → ask questions (answers get added to its "Questions and answers" section) → when it's clear, tick "Questions done" → then implement its logic and tests.
 
