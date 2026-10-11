@@ -80,6 +80,16 @@ namespace Throughput.Core.Engine.Events
             foreach (IRunObserver o in _observers) o.OnEndService(Now, station, p);
         }
 
+        internal void NotifyBlocked(Station station, Passenger p)
+        {
+            foreach (IRunObserver o in _observers) o.OnBlocked(Now, station, p);
+        }
+
+        internal void NotifyUnblocked(Station station, Passenger p)
+        {
+            foreach (IRunObserver o in _observers) o.OnUnblocked(Now, station, p);
+        }
+
         internal void NotifyRenege(Station station, Passenger p)
         {
             foreach (IRunObserver o in _observers) o.OnRenege(Now, station, p);
@@ -103,6 +113,9 @@ namespace Throughput.Core.Engine.Events
                     break;
                 case EventType.EndService:
                     ((Station)e.Node).Finish(this, e.Passenger);
+                    break;
+                case EventType.Reach:
+                    ((Station)e.Node).Reach(this, e.Passenger);
                     break;
                 case EventType.Renege:
                     ((Station)e.Node).Renege(this, e.Passenger);

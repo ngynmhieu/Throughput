@@ -13,6 +13,12 @@ namespace Throughput.Core.Engine.Events
 
         void OnEndService(double time, Station station, Passenger passenger);
 
+        /// <summary>Service ended but the next line is full: the desk holds the passenger and stops (D8).</summary>
+        void OnBlocked(double time, Station station, Passenger passenger);
+
+        /// <summary>Space opened downstream: the blocked desk lets the passenger move on.</summary>
+        void OnUnblocked(double time, Station station, Passenger passenger);
+
         /// <summary>
         /// The passenger's patience ran out and they left the line and the checkpoint (a missed flight).
         /// No OnExit follows: viewers must treat this as leaving.

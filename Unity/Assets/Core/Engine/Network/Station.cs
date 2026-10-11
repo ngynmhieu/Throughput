@@ -7,22 +7,28 @@ namespace Throughput.Core.Engine.Network
 {
     /// <summary>
     /// A stage with one FIFO line and Staff servers, each serving one passenger at a time.
-    /// People may leave the line early (reneging).
+    /// People may leave the line early (reneging). After service a passenger walks to Next, or exits
+    /// if there is none. If Next's line is full, the desk keeps the passenger and stops (blocking, D8)
+    /// until a spot frees up.
     /// </summary>
     public sealed class Station
     {
         private readonly LinkedList<Passenger> _line = new LinkedList<Passenger>();
         private readonly Dictionary<Passenger, LinkedListNode<Passenger>> _inLine = new Dictionary<Passenger, LinkedListNode<Passenger>>();
+        private readonly LinkedList<(Station From, Passenger Passenger)> _blockedUpstream = new LinkedList<(Station, Passenger)>();
         private readonly IDistribution _service;
         private readonly Pcg32 _rng;
         private int _busy;
+        private int _walkingHere;
 
-        public Station(string name, int staff, IDistribution service, Pcg32 rng)
+        public Station(string name, int staff, IDistribution service, Pcg32 rng, int lineCapacity = int.MaxValue)
         {
             if (string.IsNullOrEmpty(name)) throw new ArgumentException("A station needs a name.", nameof(name));
             if (staff < 1) throw new ArgumentOutOfRangeException(nameof(staff), staff, "A station needs at least 1 staff.");
+            if (lineCapacity < 1) throw new ArgumentOutOfRangeException(nameof(lineCapacity), lineCapacity, "A line needs room for at least 1 person.");
             Name = name;
             Staff = staff;
+            LineCapacity = lineCapacity;
             _service = service ?? throw new ArgumentNullException(nameof(service));
             _rng = rng ?? throw new ArgumentNullException(nameof(rng));
         }
@@ -31,11 +37,35 @@ namespace Throughput.Core.Engine.Network
 
         public int Staff { get; }
 
-        /// <summary>Staff currently serving someone.</summary>
+        /// <summary>
+        /// Most people this line holds, counting those already walking here. It only stops stations that
+        /// feed this line: arrivals from a Source always join (they spill back into the hall, D8).
+        /// </summary>
+        public int LineCapacity { get; }
+
+        /// <summary>The station passengers go to after this one; null means they exit.</summary>
+        public Station Next { get; private set; }
+
+        public double WalkTime { get; private set; }
+
+        /// <summary>Staff serving someone, or holding a finished passenger who can't move on yet (blocked).</summary>
         public int Busy => _busy;
 
-        /// <summary>People waiting in line (not counting those being served).</summary>
+        /// <summary>People waiting in line (not counting those being served or walking here).</summary>
         public int QueueLength => _line.Count;
+
+        private bool HasRoom => _line.Count + _walkingHere < LineCapacity;
+
+        public void ConnectTo(Station next, double walkTime = 0.0)
+        {
+            if (next == null) throw new ArgumentNullException(nameof(next));
+            if (next == this) throw new ArgumentException("A station can't feed itself.", nameof(next));
+            if (!(walkTime >= 0) || double.IsInfinity(walkTime))
+                throw new ArgumentOutOfRangeException(nameof(walkTime), walkTime, "Walk time must be 0 or more.");
+            if (Next != null) throw new InvalidOperationException($"Station '{Name}' already feeds '{Next.Name}'.");
+            Next = next;
+            WalkTime = walkTime;
+        }
 
         internal void Accept(Runner runner, Passenger passenger)
         {
@@ -44,11 +74,25 @@ namespace Throughput.Core.Engine.Network
             TryStart(runner);
         }
 
+        /// <summary>A passenger walking from the previous stage got here; their reserved spot becomes a real one.</summary>
+        internal void Reach(Runner runner, Passenger passenger)
+        {
+            _walkingHere--;
+            Accept(runner, passenger);
+        }
+
         internal void Finish(Runner runner, Passenger passenger)
         {
+            if (Next != null && !Next.HasRoom)
+            {
+                runner.NotifyEndService(this, passenger);
+                Next._blockedUpstream.AddLast((this, passenger));
+                runner.NotifyBlocked(this, passenger);
+                return;
+            }
             _busy--;
             runner.NotifyEndService(this, passenger);
-            runner.NotifyExit(passenger);
+            MoveOn(runner, passenger);
             TryStart(runner);
         }
 
@@ -59,6 +103,26 @@ namespace Throughput.Core.Engine.Network
             _line.Remove(node);
             _inLine.Remove(passenger);
             runner.NotifyRenege(this, passenger);
+            ReleaseBlocked(runner);
+        }
+
+        private void Unblock(Runner runner, Passenger passenger)
+        {
+            _busy--;
+            runner.NotifyUnblocked(this, passenger);
+            MoveOn(runner, passenger);
+            TryStart(runner);
+        }
+
+        private void MoveOn(Runner runner, Passenger passenger)
+        {
+            if (Next == null)
+            {
+                runner.NotifyExit(passenger);
+                return;
+            }
+            Next._walkingHere++;
+            runner.Schedule(runner.Now + WalkTime, EventType.Reach, Next, passenger);
         }
 
         private void TryStart(Runner runner)
@@ -71,6 +135,18 @@ namespace Throughput.Core.Engine.Network
                 _busy++;
                 runner.NotifyStartService(this, next);
                 runner.Schedule(runner.Now + _service.Sample(_rng), EventType.EndService, this, next);
+            }
+            ReleaseBlocked(runner);
+        }
+
+        /// <summary>Space opened in this line: blocked desks upstream move their passengers on, first blocked first.</summary>
+        private void ReleaseBlocked(Runner runner)
+        {
+            while (_blockedUpstream.Count > 0 && HasRoom)
+            {
+                (Station from, Passenger passenger) = _blockedUpstream.First.Value;
+                _blockedUpstream.RemoveFirst();
+                from.Unblock(runner, passenger);
             }
         }
     }
