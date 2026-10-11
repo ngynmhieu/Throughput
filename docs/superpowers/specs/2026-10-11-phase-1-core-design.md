@@ -120,14 +120,14 @@ Each slice is **test-first**: write the test from a hand calculation or a formul
 - [x] **Validation: M/M/1** (fast + strict)
 
 ### S2: Several desks
-- [ ] `Station` with c staff
-- [ ] Hand test: 2 desks, 4 passengers
-- [ ] **Validation: Erlang C** for c = 2, 3, 5 at ρ = 0.7 and 0.9
+- [x] `Station` with c staff *(already supported by the S1 engine; pinned by tests in Part 2)*
+- [x] Hand test: 2 desks, 4 passengers
+- [x] **Validation: Erlang C** for c = 2, 3, 5 at ρ = 0.7 and 0.9
 
 ### S3: Service variability
-- [ ] Service time from any distribution with a chosen CV
-- [ ] **Validation: P-K** for CS = 0 (deterministic), 0.5, 1
-- [ ] **Validation: Kingman** at ρ ≥ 0.8 + trend test
+- [x] Service time from any distribution with a chosen CV *(already supported by the S1 engine; pinned by tests in Part 2)*
+- [x] **Validation: P-K** for CS = 0 (deterministic), 0.5, 1
+- [x] **Validation: Kingman** at ρ ≥ 0.8 + trend test
 
 ### S4: Reneging (passengers give up)
 - [ ] `IBehaviour` interface + `Reneging` (patience timer, cancelled when service starts)
@@ -198,8 +198,8 @@ Each slice is **test-first**: write the test from a hand calculation or a formul
 |---|---|---|
 | S0 | Foundations: random, distributions, test helpers | Done |
 | S1 | Event loop, 1 desk, M/M/1 | Done (strict M/M/1 passed 2026-10-11: ρ 0.5/0.8/0.9 within 0.2/0.5/0.4%) |
-| S2 | Several desks, Erlang C | Not started |
-| S3 | Service variability, P-K, Kingman | Not started |
+| S2 | Several desks, Erlang C | Done (strict Erlang C passed 2026-10-11: c 2/3/5 at ρ 0.7 and 0.9, all within 0.7%) |
+| S3 | Service variability, P-K, Kingman | Done (2026-10-11: strict P-K at ρ 0.8/0.9, Cs 0/0.5/1, all within 0.7%; Kingman 5 cases within 7.7%, trend ratio 0.396 vs 0.400) |
 | S4 | Reneging, Erlang A | Not started |
 | S5 | Stages, buffers, blocking | Not started |
 | S6 | Timeline, snapshots, re-sim | Not started |

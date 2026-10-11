@@ -98,5 +98,5 @@ Separate lines waste time: one desk can sit idle while the other line is full. A
 
 - [x] Read
 - [x] Questions done
-- [ ] Implemented (`Theory.ErlangC` + validation test)
-- [ ] Strict test passes
+- [x] Implemented (`Theory.ErlangC` + validation test)
+- [x] Strict test passes

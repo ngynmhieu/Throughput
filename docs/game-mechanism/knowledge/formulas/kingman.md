@@ -96,5 +96,5 @@ A: The **average service time**. *S* = service time (different for each passenge
 
 - [x] Read
 - [x] Questions done
-- [ ] Implemented (`Theory.Kingman` + validation and trend tests)
-- [ ] Strict test passes
+- [x] Implemented (`Theory.Kingman` + validation and trend tests)
+- [x] Accuracy (±15%) and trend tests pass

@@ -77,5 +77,5 @@ Messy desk    (Cs = 2):   |■|■■■■■■|■|■|    one long check blo
 
 - [x] Read
 - [x] Questions done
-- [ ] Implemented (`Theory.PollaczekKhinchine` + validation test)
-- [ ] Strict test passes
+- [x] Implemented (`Theory.PollaczekKhinchine` + validation test)
+- [x] Strict test passes
