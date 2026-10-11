@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Throughput.Core.Engine.Behaviours;
 using Throughput.Core.Engine.Network;
 
 namespace Throughput.Core.Engine.Events
@@ -12,6 +13,7 @@ namespace Throughput.Core.Engine.Events
     {
         private readonly EventList _events = new EventList();
         private readonly List<IRunObserver> _observers = new List<IRunObserver>();
+        private readonly List<IBehaviour> _behaviours = new List<IBehaviour>();
         private readonly Source[] _sources;
         private int _nextPassengerId;
         private bool _started;
@@ -30,6 +32,11 @@ namespace Throughput.Core.Engine.Events
         public void AddObserver(IRunObserver observer)
         {
             _observers.Add(observer ?? throw new ArgumentNullException(nameof(observer)));
+        }
+
+        public void AddBehaviour(IBehaviour behaviour)
+        {
+            _behaviours.Add(behaviour ?? throw new ArgumentNullException(nameof(behaviour)));
         }
 
         /// <summary>Handles every event up to and including time <paramref name="until"/>. Can be called again to continue.</summary>
@@ -60,6 +67,7 @@ namespace Throughput.Core.Engine.Events
         internal void NotifyJoinQueue(Station station, Passenger p)
         {
             foreach (IRunObserver o in _observers) o.OnJoinQueue(Now, station, p);
+            foreach (IBehaviour b in _behaviours) b.OnJoinQueue(this, station, p);
         }
 
         internal void NotifyStartService(Station station, Passenger p)
@@ -70,6 +78,11 @@ namespace Throughput.Core.Engine.Events
         internal void NotifyEndService(Station station, Passenger p)
         {
             foreach (IRunObserver o in _observers) o.OnEndService(Now, station, p);
+        }
+
+        internal void NotifyRenege(Station station, Passenger p)
+        {
+            foreach (IRunObserver o in _observers) o.OnRenege(Now, station, p);
         }
 
         internal void NotifyExit(Passenger p)
@@ -90,6 +103,9 @@ namespace Throughput.Core.Engine.Events
                     break;
                 case EventType.EndService:
                     ((Station)e.Node).Finish(this, e.Passenger);
+                    break;
+                case EventType.Renege:
+                    ((Station)e.Node).Renege(this, e.Passenger);
                     break;
                 default:
                     throw new InvalidOperationException($"Unhandled event type {e.Type}.");

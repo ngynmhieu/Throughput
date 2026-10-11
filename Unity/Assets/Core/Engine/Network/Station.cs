@@ -5,10 +5,14 @@ using Throughput.Core.Engine.Randomness;
 
 namespace Throughput.Core.Engine.Network
 {
-    /// <summary>A stage with one FIFO line and Staff servers, each serving one passenger at a time.</summary>
+    /// <summary>
+    /// A stage with one FIFO line and Staff servers, each serving one passenger at a time.
+    /// People may leave the line early (reneging).
+    /// </summary>
     public sealed class Station
     {
-        private readonly Queue<Passenger> _line = new Queue<Passenger>();
+        private readonly LinkedList<Passenger> _line = new LinkedList<Passenger>();
+        private readonly Dictionary<Passenger, LinkedListNode<Passenger>> _inLine = new Dictionary<Passenger, LinkedListNode<Passenger>>();
         private readonly IDistribution _service;
         private readonly Pcg32 _rng;
         private int _busy;
@@ -35,7 +39,7 @@ namespace Throughput.Core.Engine.Network
 
         internal void Accept(Runner runner, Passenger passenger)
         {
-            _line.Enqueue(passenger);
+            _inLine[passenger] = _line.AddLast(passenger);
             runner.NotifyJoinQueue(this, passenger);
             TryStart(runner);
         }
@@ -48,11 +52,22 @@ namespace Throughput.Core.Engine.Network
             TryStart(runner);
         }
 
+        /// <summary>A Renege event fired. Does nothing if the passenger already left the line (service started).</summary>
+        internal void Renege(Runner runner, Passenger passenger)
+        {
+            if (!_inLine.TryGetValue(passenger, out LinkedListNode<Passenger> node)) return;
+            _line.Remove(node);
+            _inLine.Remove(passenger);
+            runner.NotifyRenege(this, passenger);
+        }
+
         private void TryStart(Runner runner)
         {
             while (_busy < Staff && _line.Count > 0)
             {
-                Passenger next = _line.Dequeue();
+                Passenger next = _line.First.Value;
+                _line.RemoveFirst();
+                _inLine.Remove(next);
                 _busy++;
                 runner.NotifyStartService(this, next);
                 runner.Schedule(runner.Now + _service.Sample(_rng), EventType.EndService, this, next);
