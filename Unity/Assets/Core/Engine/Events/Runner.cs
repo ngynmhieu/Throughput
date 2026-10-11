@@ -1,25 +1,25 @@
 using System;
 using System.Collections.Generic;
-using Throughput.Core.Sim.Network;
+using Throughput.Core.Engine.Network;
 
-namespace Throughput.Core.Sim.Events
+namespace Throughput.Core.Engine.Events
 {
     /// <summary>
     /// The event loop: take the earliest event, handle it, repeat. Time only moves by jumping
     /// to the next event; it never depends on frames or real time.
     /// </summary>
-    public sealed class Simulator
+    public sealed class Runner
     {
         private readonly EventList _events = new EventList();
-        private readonly List<ISimObserver> _observers = new List<ISimObserver>();
+        private readonly List<IRunObserver> _observers = new List<IRunObserver>();
         private readonly Source[] _sources;
         private int _nextPassengerId;
         private bool _started;
 
-        public Simulator(params Source[] sources)
+        public Runner(params Source[] sources)
         {
             if (sources == null || sources.Length == 0)
-                throw new ArgumentException("A simulation needs at least one source.", nameof(sources));
+                throw new ArgumentException("A run needs at least one source.", nameof(sources));
             foreach (Source s in sources)
                 if (s == null) throw new ArgumentException("Sources can't be null.", nameof(sources));
             _sources = (Source[])sources.Clone();
@@ -27,7 +27,7 @@ namespace Throughput.Core.Sim.Events
 
         public double Now { get; private set; }
 
-        public void AddObserver(ISimObserver observer)
+        public void AddObserver(IRunObserver observer)
         {
             _observers.Add(observer ?? throw new ArgumentNullException(nameof(observer)));
         }
@@ -44,7 +44,7 @@ namespace Throughput.Core.Sim.Events
 
             while (_events.Count > 0 && _events.Peek().Time <= until)
             {
-                SimEvent e = _events.Pop();
+                EngineEvent e = _events.Pop();
                 Now = e.Time;
                 Handle(e);
             }
@@ -54,37 +54,37 @@ namespace Throughput.Core.Sim.Events
         {
             if (!(time >= Now))
                 throw new InvalidOperationException($"Can't schedule an event at {time}: the clock is already at {Now}.");
-            _events.Push(new SimEvent(time, type, node, passenger));
+            _events.Push(new EngineEvent(time, type, node, passenger));
         }
 
         internal void NotifyJoinQueue(Station station, Passenger p)
         {
-            foreach (ISimObserver o in _observers) o.OnJoinQueue(Now, station, p);
+            foreach (IRunObserver o in _observers) o.OnJoinQueue(Now, station, p);
         }
 
         internal void NotifyStartService(Station station, Passenger p)
         {
-            foreach (ISimObserver o in _observers) o.OnStartService(Now, station, p);
+            foreach (IRunObserver o in _observers) o.OnStartService(Now, station, p);
         }
 
         internal void NotifyEndService(Station station, Passenger p)
         {
-            foreach (ISimObserver o in _observers) o.OnEndService(Now, station, p);
+            foreach (IRunObserver o in _observers) o.OnEndService(Now, station, p);
         }
 
         internal void NotifyExit(Passenger p)
         {
-            foreach (ISimObserver o in _observers) o.OnExit(Now, p);
+            foreach (IRunObserver o in _observers) o.OnExit(Now, p);
         }
 
-        private void Handle(SimEvent e)
+        private void Handle(EngineEvent e)
         {
             switch (e.Type)
             {
                 case EventType.Arrive:
                     var source = (Source)e.Node;
                     var passenger = new Passenger(_nextPassengerId++, Now);
-                    foreach (ISimObserver o in _observers) o.OnArrive(Now, passenger);
+                    foreach (IRunObserver o in _observers) o.OnArrive(Now, passenger);
                     ScheduleNextArrival(source);
                     source.Target.Accept(this, passenger);
                     break;

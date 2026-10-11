@@ -1,6 +1,6 @@
 using System;
 
-namespace Throughput.Core.Sim.Randomness
+namespace Throughput.Core.Engine.Randomness
 {
     /// <summary>Always the same duration, CV = 0. The "D" in M/D/1. Uses no random numbers.</summary>
     public sealed class Deterministic : IDistribution

@@ -1,4 +1,4 @@
-namespace Throughput.Core.Sim.Network
+namespace Throughput.Core.Engine.Network
 {
     public sealed class Passenger
     {

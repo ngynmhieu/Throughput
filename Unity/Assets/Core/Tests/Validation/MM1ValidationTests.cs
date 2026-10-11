@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 using NUnit.Framework;
-using Throughput.Core.Sim.Randomness;
+using Throughput.Core.Engine.Randomness;
 using Throughput.Core.Tests.Support;
 
 namespace Throughput.Core.Tests.Validation
@@ -13,7 +13,7 @@ namespace Throughput.Core.Tests.Validation
     {
         private const double Mu = 1.0;
 
-        private static double SimulatedMeanWait(ulong seed, double rho, int passengers)
+        private static double MeasuredMeanWait(ulong seed, double rho, int passengers)
         {
             double lambda = rho * Mu;
             var log = Experiments.RunSingleStation(seed, new Exponential(1.0 / lambda), new Exponential(1.0 / Mu),
@@ -25,11 +25,11 @@ namespace Throughput.Core.Tests.Validation
         [TestCase(0.8)]
         public void Fast_MeanWaitWithin10Percent(double rho)
         {
-            double sim = SimulatedMeanWait(7UL, rho, 200_000);
+            double measured = MeasuredMeanWait(7UL, rho, 200_000);
             double theory = Theory.MM1Wq(rho * Mu, Mu);
-            string detail = $"ρ = {rho}: sim {sim:F3} vs theory {theory:F3}";
+            string detail = $"ρ = {rho}: measured {measured:F3} vs theory {theory:F3}";
             TestContext.WriteLine(detail);
-            Assert.That(sim, Is.EqualTo(theory).Within(10).Percent, detail);
+            Assert.That(measured, Is.EqualTo(theory).Within(10).Percent, detail);
         }
 
         [Test, Category("Strict")]
@@ -42,12 +42,12 @@ namespace Throughput.Core.Tests.Validation
             const int passengers = 300_000;
             var means = new List<double>();
             for (int i = 0; i < replications; i++)
-                means.Add(SimulatedMeanWait((ulong)(1000 + i), rho, passengers));
+                means.Add(MeasuredMeanWait((ulong)(1000 + i), rho, passengers));
 
             double theory = Theory.MM1Wq(rho * Mu, Mu);
             double mean = Stats.Mean(means);
             var (low, high) = Stats.ConfidenceInterval99(means);
-            string detail = $"ρ = {rho}: sim {mean:F4} (99% CI {low:F4}–{high:F4}) vs theory {theory:F4}";
+            string detail = $"ρ = {rho}: measured {mean:F4} (99% CI {low:F4}–{high:F4}) vs theory {theory:F4}";
             TestContext.WriteLine(detail);
 
             Assert.That(theory, Is.InRange(low, high), detail);

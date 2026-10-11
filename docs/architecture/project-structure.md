@@ -1,16 +1,17 @@
 # Architecture: Project Structure
 
-How the repo is laid out across all phases: Sim, Unity and Blender. Decided 2026-10-10.
+How the repo is laid out across all phases: Core, Unity and Blender. Decided 2026-10-10.
 
 ## Decision A5: the engine lives inside the Unity project from the start
 
-- **Choice:** all logic code (the "backend") lives in `Unity/Assets/Core/` from phase 1, not in a separate .NET project. The simulation engine is one part of it, in `Core/Sim/`.
+- **Choice:** all logic code (the "backend") lives in `Unity/Assets/Core/` from phase 1, not in a separate .NET project. The simulation engine is one part of it, in `Core/Engine/`.
 - **Why:** the user wants to test inside the real project from day one, so nothing changes when phase 2 starts.
 - **How "pure C#" is kept:** `Throughput.Core.asmdef` has **No Engine References** turned on, so Unity itself refuses any `UnityEngine` use in the engine (A4).
 - **Tests:** Unity Test Framework, **EditMode**. Run them from the Test Runner window, or headless:
   `Unity.exe -batchmode -projectPath Unity -runTests -testPlatform EditMode -testResults results.xml`
 - **Rejected:** a standalone `.NET` project used as a local Unity package. It has faster tests, but phase 1 and phase 2 would then live in different places.
 - **History:** first named `Assets/Sim` / `Throughput.Sim`. Renamed to `Core` on 2026-10-10 because the logic layer holds more than the simulation (levels, plans, layout compiler, timeline, results). `Core` is the common game-dev name for "logic without visuals"; Unity has no official name for it (see [Unity/Docs/best-practices.md](../../Unity/Docs/best-practices.md)).
+- **History (2026-10-11):** the engine folder `Core/Sim/` was renamed `Core/Engine/`, and `Simulator` / `SimEvent` / `ISimObserver` became `Runner` / `EngineEvent` / `IRunObserver`. Reason: the user wants names that read as "the working machinery", not "a fake copy".
 
 ## Creating the project
 
@@ -34,7 +35,7 @@ throughput/
 │       │   ├── Throughput.Core.asmdef     (No Engine References)
 │       │   ├── Levels/             Level + Plan data classes, JSON loading
 │       │   ├── Layout/             compiler: plan → queueing network
-│       │   ├── Sim/                the engine
+│       │   ├── Engine/             the engine (runs passengers through the network)
 │       │   │   └── Network/  Events/  Policies/  Behaviours/
 │       │   ├── Timeline/           what happened when, snapshots (read by Game)
 │       │   ├── Results/            goal check, costs, perceived wait

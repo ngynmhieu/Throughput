@@ -1,6 +1,6 @@
 using System;
 
-namespace Throughput.Core.Sim.Randomness
+namespace Throughput.Core.Engine.Randomness
 {
     /// <summary>
     /// Durations with any chosen mean and CV (spec Q2: gamma). Shape k = 1/CV², scale = mean/k.

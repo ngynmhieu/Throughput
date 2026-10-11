@@ -1,4 +1,4 @@
-namespace Throughput.Core.Sim.Events
+namespace Throughput.Core.Engine.Events
 {
     /// <summary>
     /// The kinds of scheduled event. The number is the tie-break priority when two events share

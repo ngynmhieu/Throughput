@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
-using Throughput.Core.Sim.Events;
-using Throughput.Core.Sim.Network;
+using Throughput.Core.Engine.Events;
+using Throughput.Core.Engine.Network;
 
 namespace Throughput.Core.Results
 {
@@ -76,7 +76,7 @@ namespace Throughput.Core.Results
     }
 
     /// <summary>Records every passenger and (optionally) every step. Big runs pass keepEntries: false to save memory.</summary>
-    public sealed class RunLog : ISimObserver
+    public sealed class RunLog : IRunObserver
     {
         private readonly List<PassengerRecord> _passengers = new List<PassengerRecord>();
         private readonly List<LogEntry> _entries = new List<LogEntry>();

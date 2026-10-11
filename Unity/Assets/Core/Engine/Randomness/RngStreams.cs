@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace Throughput.Core.Sim.Randomness
+namespace Throughput.Core.Engine.Randomness
 {
     /// <summary>
     /// One independent random generator per named source of randomness ("arrivals:entry",

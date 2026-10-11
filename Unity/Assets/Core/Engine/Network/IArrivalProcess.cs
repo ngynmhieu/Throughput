@@ -1,7 +1,7 @@
 using System;
-using Throughput.Core.Sim.Randomness;
+using Throughput.Core.Engine.Randomness;
 
-namespace Throughput.Core.Sim.Network
+namespace Throughput.Core.Engine.Network
 {
     /// <summary>Decides when the next passenger arrives at a Source.</summary>
     public interface IArrivalProcess

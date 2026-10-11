@@ -1,10 +1,10 @@
-using Throughput.Core.Sim.Network;
+using Throughput.Core.Engine.Network;
 
-namespace Throughput.Core.Sim.Events
+namespace Throughput.Core.Engine.Events
 {
-    public sealed class SimEvent
+    public sealed class EngineEvent
     {
-        public SimEvent(double time, EventType type, object node, Passenger passenger)
+        public EngineEvent(double time, EventType type, object node, Passenger passenger)
         {
             Time = time;
             Type = type;

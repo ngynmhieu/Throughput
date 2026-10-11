@@ -37,7 +37,7 @@ Applies to the Unity project in `Unity/`.
 **In Throughput:** we group by **layer**, which is a form of feature grouping:
 ```
 Assets/
-├── Core/    logic ("backend"): no Unity code; the engine is in Core/Sim/
+├── Core/    logic ("backend"): no Unity code; the engine is in Core/Engine/
 ├── Game/    presentation ("frontend")
 └── Art/     models from Blender
 ```
@@ -124,7 +124,7 @@ The URP template's own folders (`Settings/`, `Scenes/`, `TutorialInfo/`) stay wh
 
 **What Unity recommends:** use namespaces to separate modules and avoid name clashes with third-party code. **Make folders match namespaces.**
 
-**In Throughput:** `Throughput.Core.Sim.Network` lives in `Assets/Core/Sim/Network/`, and so on.
+**In Throughput:** `Throughput.Core.Engine.Network` lives in `Assets/Core/Engine/Network/`, and so on.
 
 ---
 
@@ -205,7 +205,7 @@ General rules:
 - [x] Editor version pinned (6000.3.26f1)
 - [x] Asmdefs: logic, tests, presentation
 - [x] `.gitkeep` in empty folders
-- [x] Rename `Sim` → `Core` (logic layer), engine in `Core/Sim/`
+- [x] Rename `Sim` → `Core` (logic layer), engine in `Core/Engine/` (was `Core/Sim/` until 2026-10-11)
 - [x] VS Code works from the repo root (section 10)
 - [x] Unity CLI + Pipeline package (section 11)
 - [ ] Set Unity's External Script Editor to Visual Studio Code

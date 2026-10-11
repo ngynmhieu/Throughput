@@ -1,9 +1,9 @@
-using Throughput.Core.Sim.Network;
+using Throughput.Core.Engine.Network;
 
-namespace Throughput.Core.Sim.Events
+namespace Throughput.Core.Engine.Events
 {
-    /// <summary>Watches the simulation. Observers can't change it (spec, Observers).</summary>
-    public interface ISimObserver
+    /// <summary>Watches a run. Observers can't change it (spec, Observers).</summary>
+    public interface IRunObserver
     {
         void OnArrive(double time, Passenger passenger);
 

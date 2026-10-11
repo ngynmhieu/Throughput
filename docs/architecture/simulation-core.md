@@ -1,6 +1,6 @@
 # Architecture: Simulation Core
 
-Inside `Throughput.Core`, the `Core/Sim/` part: how the compiled network is simulated. Accepted as the starting design on 2026-10-10; expect refinements once real code exists.
+Inside `Throughput.Core`, the `Core/Engine/` part: how the compiled network is run. (Folder was `Core/Sim/` and the loop class `Simulator` until 2026-10-11; renamed to `Engine` / `Runner` because the user prefers a "working machinery" name. "Discrete-event simulation" stays as the theory term.) Accepted as the starting design on 2026-10-10; expect refinements once real code exists.
 
 See [overview.md](overview.md) for where this sits (decisions A1–A4).
 

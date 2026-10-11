@@ -1,4 +1,4 @@
-namespace Throughput.Core.Sim.Randomness
+namespace Throughput.Core.Engine.Randomness
 {
     /// <summary>
     /// PCG32 random number generator (Melissa O'Neill, pcg-random.org).

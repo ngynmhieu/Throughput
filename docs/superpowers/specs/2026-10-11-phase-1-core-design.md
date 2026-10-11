@@ -43,9 +43,9 @@ Build the queueing engine as plain C#, and **prove** it is right before any grap
 Assets/Core/
 ├── Levels/     LevelDef, PlanDef (plain data) + JSON reading
 ├── Layout/     LayoutCompiler: PlanDef + LevelDef → Network
-├── Sim/
+├── Engine/
 │   ├── Network/    Source, Queue, Station, Buffer, Router, Sink, Passenger
-│   ├── Events/     Event, EventList (priority queue), Simulator (the loop)
+│   ├── Events/     EngineEvent, EventList (priority queue), Runner (the loop), IRunObserver
 │   ├── Policies/   IDiscipline, IRoutingPolicy, IStaffingRule + starters
 │   ├── Behaviours/ IBehaviour + Reneging
 │   └── Randomness/ Pcg32, RngStreams, distributions   ← new folder ("Random" would clash with System.Random)
@@ -113,7 +113,7 @@ Each slice is **test-first**: write the test from a hand calculation or a formul
 - [x] Tests for the formulas themselves against published worked examples
 
 ### S1: Event loop + 1 queue + 1 desk
-- [x] `EventList`, `Simulator`, `Source`, `Queue` (FIFO), `Station` (1 staff), `Sink`
+- [x] `EventList`, `Runner`, `Source`, `Queue` (FIFO), `Station` (1 staff), `Sink`
 - [x] Hand tests: fixed times → exact timeline (e.g. arrivals 0:00, 0:30, 1:00; 2-min service)
 - [x] Event-order tie test (S-D4)
 - [x] Little's Law invariant wired in
@@ -150,6 +150,7 @@ Each slice is **test-first**: write the test from a hand calculation or a formul
 - [ ] JSON reading (library choice: see open question Q1)
 - [ ] `LayoutCompiler`: plan + level → network, with clear errors for invalid plans
 - [ ] Arrival waves: time-varying arrival rate (flight banks)
+- [ ] Realistic time ranges for game levels: `Shifted(min, inner)` (a check always takes at least *min*, plus a random part) and `Bounded(min, max, inner)` (re-roll outside the range) as `IDistribution` wrappers, set per desk in level data. **Formula tests keep pure distributions** (no min/max), or the comparison with theory breaks. Test: samples never leave the range; `Shifted` mean = min + inner mean.
 - [ ] Tests: sample level JSON → expected network; invalid plan → helpful error
 
 ### S8: Starter policies, rules, events, actions
@@ -188,7 +189,7 @@ Each slice is **test-first**: write the test from a hand calculation or a formul
 **Notes for later slices (from the part 1 review, 2026-10-11):**
 - **S4 (reneging):** the Little's Law check assumes everyone in line starts service; count a reneger's wait up to the moment they leave.
 - **S5 (several stations):** `PassengerRecord` holds one visit (`Station`, `QueueJoin`, `Wait`); make it per-visit, and `Station.Finish` must hand passengers to the next stage instead of calling Exit.
-- **S6 (re-sim):** `Simulator.Run(until)` leaves `Now` at the last event, not at `until`.
+- **S6 (re-sim):** `Runner.Run(until)` leaves `Now` at the last event, not at `until`.
 - **Any slice:** `Run()` with a renewal source and no stop time never ends; the starter levels must always set a wave end.
 
 ## Progress
@@ -215,3 +216,4 @@ Each slice is **test-first**: write the test from a hand calculation or a formul
 | 2026-10-11 | Plan part 1 written: Randomness folder name, 99% CI for strict tier, Q2 and Q3 decided |
 | 2026-10-11 | S0 and S1 done: PCG32, streams, distributions, event loop, invariants, M/M/1 validated |
 | 2026-10-11 | Review: FIFO invariant added; Q5 (determinism per build) and notes for S4–S6 recorded |
+| 2026-10-11 | S7: added realistic time ranges (minimum + random part, hard max safety net) for game levels |

@@ -1,33 +1,33 @@
 using System;
 using System.Collections.Generic;
 
-namespace Throughput.Core.Sim.Events
+namespace Throughput.Core.Engine.Events
 {
     /// <summary>Binary min-heap of events ordered by (Time, Type, Seq). Same inputs → same order, always.</summary>
     public sealed class EventList
     {
-        private readonly List<SimEvent> _heap = new List<SimEvent>();
+        private readonly List<EngineEvent> _heap = new List<EngineEvent>();
         private long _nextSeq;
 
         public int Count => _heap.Count;
 
-        public void Push(SimEvent e)
+        public void Push(EngineEvent e)
         {
             e.Seq = _nextSeq++;
             _heap.Add(e);
             SiftUp(_heap.Count - 1);
         }
 
-        public SimEvent Peek()
+        public EngineEvent Peek()
         {
             if (_heap.Count == 0)
                 throw new InvalidOperationException("The event list is empty.");
             return _heap[0];
         }
 
-        public SimEvent Pop()
+        public EngineEvent Pop()
         {
-            SimEvent top = Peek();
+            EngineEvent top = Peek();
             int last = _heap.Count - 1;
             _heap[0] = _heap[last];
             _heap.RemoveAt(last);
@@ -36,7 +36,7 @@ namespace Throughput.Core.Sim.Events
             return top;
         }
 
-        private static bool Before(SimEvent a, SimEvent b)
+        private static bool Before(EngineEvent a, EngineEvent b)
         {
             if (a.Time != b.Time) return a.Time < b.Time;
             if (a.Type != b.Type) return a.Type < b.Type;
@@ -71,7 +71,7 @@ namespace Throughput.Core.Sim.Events
 
         private void Swap(int a, int b)
         {
-            SimEvent tmp = _heap[a];
+            EngineEvent tmp = _heap[a];
             _heap[a] = _heap[b];
             _heap[b] = tmp;
         }

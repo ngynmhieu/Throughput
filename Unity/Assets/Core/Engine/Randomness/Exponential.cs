@@ -1,6 +1,6 @@
 using System;
 
-namespace Throughput.Core.Sim.Randomness
+namespace Throughput.Core.Engine.Randomness
 {
     /// <summary>Fully random ("memoryless") durations, CV = 1. The "M" in M/M/1.</summary>
     public sealed class Exponential : IDistribution

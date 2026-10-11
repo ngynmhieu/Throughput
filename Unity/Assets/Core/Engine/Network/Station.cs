@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
-using Throughput.Core.Sim.Events;
-using Throughput.Core.Sim.Randomness;
+using Throughput.Core.Engine.Events;
+using Throughput.Core.Engine.Randomness;
 
-namespace Throughput.Core.Sim.Network
+namespace Throughput.Core.Engine.Network
 {
     /// <summary>A stage with one FIFO line and Staff servers, each serving one passenger at a time.</summary>
     public sealed class Station
@@ -33,29 +33,29 @@ namespace Throughput.Core.Sim.Network
         /// <summary>People waiting in line (not counting those being served).</summary>
         public int QueueLength => _line.Count;
 
-        internal void Accept(Simulator sim, Passenger passenger)
+        internal void Accept(Runner runner, Passenger passenger)
         {
             _line.Enqueue(passenger);
-            sim.NotifyJoinQueue(this, passenger);
-            TryStart(sim);
+            runner.NotifyJoinQueue(this, passenger);
+            TryStart(runner);
         }
 
-        internal void Finish(Simulator sim, Passenger passenger)
+        internal void Finish(Runner runner, Passenger passenger)
         {
             _busy--;
-            sim.NotifyEndService(this, passenger);
-            sim.NotifyExit(passenger);
-            TryStart(sim);
+            runner.NotifyEndService(this, passenger);
+            runner.NotifyExit(passenger);
+            TryStart(runner);
         }
 
-        private void TryStart(Simulator sim)
+        private void TryStart(Runner runner)
         {
             while (_busy < Staff && _line.Count > 0)
             {
                 Passenger next = _line.Dequeue();
                 _busy++;
-                sim.NotifyStartService(this, next);
-                sim.Schedule(sim.Now + _service.Sample(_rng), EventType.EndService, this, next);
+                runner.NotifyStartService(this, next);
+                runner.Schedule(runner.Now + _service.Sample(_rng), EventType.EndService, this, next);
             }
         }
     }

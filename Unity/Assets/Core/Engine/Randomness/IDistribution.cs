@@ -1,4 +1,4 @@
-namespace Throughput.Core.Sim.Randomness
+namespace Throughput.Core.Engine.Randomness
 {
     /// <summary>A source of non-negative random durations (service times, gaps between arrivals).</summary>
     public interface IDistribution

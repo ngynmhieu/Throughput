@@ -1,6 +1,6 @@
 using System;
 
-namespace Throughput.Core.Sim.Network
+namespace Throughput.Core.Engine.Network
 {
     /// <summary>Where passengers appear. Sends each new passenger to its target station.</summary>
     public sealed class Source

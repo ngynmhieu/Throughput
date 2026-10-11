@@ -1,9 +1,9 @@
 using System.Linq;
 using NUnit.Framework;
-using Throughput.Core.Sim.Randomness;
+using Throughput.Core.Engine.Randomness;
 using Throughput.Core.Tests.Support;
 
-namespace Throughput.Core.Tests.Sim
+namespace Throughput.Core.Tests.Engine
 {
     /// <summary>P3: same seed + same setup → exactly the same run.</summary>
     public class DeterminismTests

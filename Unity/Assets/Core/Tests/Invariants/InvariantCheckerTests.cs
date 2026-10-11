@@ -1,8 +1,8 @@
 using System.Collections.Generic;
 using NUnit.Framework;
 using Throughput.Core.Results;
-using Throughput.Core.Sim.Network;
-using Throughput.Core.Sim.Randomness;
+using Throughput.Core.Engine.Network;
+using Throughput.Core.Engine.Randomness;
 using Throughput.Core.Tests.Support;
 
 namespace Throughput.Core.Tests.Invariants

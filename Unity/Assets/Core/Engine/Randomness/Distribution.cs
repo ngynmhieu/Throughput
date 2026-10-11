@@ -1,6 +1,6 @@
 using System;
 
-namespace Throughput.Core.Sim.Randomness
+namespace Throughput.Core.Engine.Randomness
 {
     public static class Distribution
     {

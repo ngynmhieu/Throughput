@@ -1,14 +1,14 @@
 using System;
 using System.Collections.Generic;
 using NUnit.Framework;
-using Throughput.Core.Sim.Events;
+using Throughput.Core.Engine.Events;
 
 namespace Throughput.Core.Tests.Events
 {
     public class EventListTests
     {
-        private static SimEvent At(double time, EventType type = EventType.Arrive, string tag = null)
-            => new SimEvent(time, type, tag, null);
+        private static EngineEvent At(double time, EventType type = EventType.Arrive, string tag = null)
+            => new EngineEvent(time, type, tag, null);
 
         [Test]
         public void PopsInTimeOrder()

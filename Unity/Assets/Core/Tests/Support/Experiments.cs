@@ -1,7 +1,7 @@
 using Throughput.Core.Results;
-using Throughput.Core.Sim.Events;
-using Throughput.Core.Sim.Network;
-using Throughput.Core.Sim.Randomness;
+using Throughput.Core.Engine.Events;
+using Throughput.Core.Engine.Network;
+using Throughput.Core.Engine.Randomness;
 
 namespace Throughput.Core.Tests.Support
 {
@@ -15,10 +15,10 @@ namespace Throughput.Core.Tests.Support
             var streams = new RngStreams(seed);
             var station = new Station("desk", staff, service, streams.Get("service:desk"));
             var source = new Source("entry", new RenewalArrivals(gap, streams.Get("arrivals:entry")), station, stopTime);
-            var sim = new Simulator(source);
+            var runner = new Runner(source);
             var log = new RunLog(keepEntries);
-            sim.AddObserver(log);
-            sim.Run();
+            runner.AddObserver(log);
+            runner.Run();
             return log;
         }
 

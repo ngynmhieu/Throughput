@@ -1,5 +1,5 @@
 using NUnit.Framework;
-using Throughput.Core.Sim.Randomness;
+using Throughput.Core.Engine.Randomness;
 
 namespace Throughput.Core.Tests.Randomness
 {
