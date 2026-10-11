@@ -6,3 +6,6 @@
 *.wav filter=lfs diff=lfs merge=lfs -text
 *.mp3 filter=lfs diff=lfs merge=lfs -text
 *.ogg filter=lfs diff=lfs merge=lfs -text
+
+# Shell scripts must keep LF line endings or bash fails on Windows checkouts
+*.sh text eol=lf

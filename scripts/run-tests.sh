@@ -21,6 +21,7 @@ OUT="Unity/Logs/test-results.xml"  # not Temp/: Unity wipes Temp on exit
 ARGS=(test Unity --mode EditMode --output "$OUT" --no-banner)
 if [ -n "$FILTER" ]; then ARGS+=(--filter "$FILTER"); fi
 
+rm -f "$OUT"  # never report a previous run's results
 UNITY_NO_CONSENT_PROMPT=1 "$UNITY" "${ARGS[@]}" -- -testCategory "$CATEGORY"
 code=$?
 
