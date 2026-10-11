@@ -1,4 +1,7 @@
+using System.Collections.Generic;
+using System.Linq;
 using NUnit.Framework;
+using Throughput.Core.Engine.Behaviours;
 using Throughput.Core.Engine.Events;
 using Throughput.Core.Engine.Network;
 using Throughput.Core.Engine.Randomness;
@@ -60,6 +63,30 @@ namespace Throughput.Core.Tests.Validation
             double theory = Theory.MM1Wq(Lambda, Mu);
             StrictCheck.AssertMeanMatches(seed => Measure(seed, 300_000).Id, theory, "Tandem stage 1 (ID)");
             StrictCheck.AssertMeanMatches(seed => Measure(seed, 300_000).Scan, theory, "Tandem stage 2 (scanner)");
+        }
+
+        [Test]
+        public void Invariants_HoldOnBusyChainWithBlockingAndGivingUp()
+        {
+            // entry → ID (2 staff) → walk 0.2 → scanner (1 staff, line holds 3) → walk 0.1 → bag check (1 staff, line holds 2) → exit.
+            // Busy enough that the small lines fill and block, with patience so people also give up.
+            var streams = new RngStreams(11UL);
+            var id = new Station("id", 2, new Exponential(1.6), streams.Get("service:id"));
+            var scan = new Station("scan", 1, Distribution.FromMeanCv(0.9, 0.5), streams.Get("service:scan"), lineCapacity: 3);
+            var bags = new Station("bags", 1, Distribution.FromMeanCv(0.85, 1.0), streams.Get("service:bags"), lineCapacity: 2);
+            id.ConnectTo(scan, walkTime: 0.2);
+            scan.ConnectTo(bags, walkTime: 0.1);
+            var runner = new Runner(new Source("entry", new RenewalArrivals(new Exponential(1.0), streams.Get("arrivals:entry")),
+                id, stopTime: 5_000.0));
+            runner.AddBehaviour(new Reneging(new Exponential(20.0), streams.Get("patience")));
+            var log = new RunLog();
+            runner.AddObserver(log);
+            runner.Run();
+
+            Assert.That(log.Entries.Count(e => e.Kind == LogKind.Blocked), Is.GreaterThan(0), "The test should actually block.");
+            InvariantChecker.AssertAll(log,
+                new Dictionary<string, int> { { "id", 2 }, { "scan", 1 }, { "bags", 1 } },
+                lineCapacity: new Dictionary<string, int> { { "scan", 3 }, { "bags", 2 } });
         }
     }
 }
