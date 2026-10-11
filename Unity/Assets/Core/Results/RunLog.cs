@@ -75,14 +75,17 @@ namespace Throughput.Core.Results
 
         public bool WasBlocked => !double.IsNaN(Unblocked);
 
+        /// <summary>Service is over but the desk is still holding them (the next line is full).</summary>
+        public bool IsBlocked { get; internal set; }
+
         /// <summary>Time spent in this line: until service started, or until they gave up.</summary>
         public double Wait => (HasReneged ? Renege : ServiceStart) - QueueJoin;
 
         /// <summary>Time held at the desk after service because the next line was full.</summary>
         public double BlockedTime => WasBlocked ? Unblocked - ServiceEnd : 0.0;
 
-        /// <summary>When they left this station (gave up, moved on, or NaN if still here).</summary>
-        public double LeftAt => HasReneged ? Renege : WasBlocked ? Unblocked : ServiceEnd;
+        /// <summary>When they left this station (gave up, moved on, or NaN if still here, including still blocked).</summary>
+        public double LeftAt => HasReneged ? Renege : IsBlocked ? double.NaN : WasBlocked ? Unblocked : ServiceEnd;
     }
 
     /// <summary>
@@ -181,13 +184,15 @@ namespace Throughput.Core.Results
 
         public void OnBlocked(double time, Station station, Passenger passenger)
         {
-            VisitAt(station, passenger); // only checks they're there; ServiceEnd already marks the moment
+            VisitAt(station, passenger).IsBlocked = true; // ServiceEnd already marks the moment
             Add(time, LogKind.Blocked, passenger, station);
         }
 
         public void OnUnblocked(double time, Station station, Passenger passenger)
         {
-            VisitAt(station, passenger).Unblocked = time;
+            Visit v = VisitAt(station, passenger);
+            v.IsBlocked = false;
+            v.Unblocked = time;
             Add(time, LogKind.Unblocked, passenger, station);
         }
 

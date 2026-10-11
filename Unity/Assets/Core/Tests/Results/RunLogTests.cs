@@ -57,5 +57,28 @@ namespace Throughput.Core.Tests.Results
 
             Assert.Throws<InvalidOperationException>(() => log.OnRenege(5.0, Desk("desk"), p));
         }
+
+        [Test]
+        public void StillBlocked_HasNotLeft()
+        {
+            // A run stopped (Run(until)) while the desk still holds the passenger: they haven't left.
+            Station id = Desk("id");
+            var p = new Passenger(0, 0.0);
+            var log = new RunLog();
+            log.OnArrive(0.0, p);
+            log.OnJoinQueue(0.0, id, p);
+            log.OnStartService(0.0, id, p);
+            log.OnEndService(1.0, id, p);
+            log.OnBlocked(1.0, id, p);
+
+            Visit v = log.Passengers[0].Visits[0];
+            Assert.That(v.IsBlocked, Is.True);
+            Assert.That(double.IsNaN(v.LeftAt), Is.True);
+
+            log.OnUnblocked(4.0, id, p);
+            Assert.That(v.IsBlocked, Is.False);
+            Assert.That(v.LeftAt, Is.EqualTo(4.0));
+            Assert.That(v.BlockedTime, Is.EqualTo(3.0));
+        }
     }
 }
