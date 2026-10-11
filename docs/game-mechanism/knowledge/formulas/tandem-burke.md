@@ -49,11 +49,15 @@ Total time in lines: 8 min
 
 ## Questions and answers
 
-*(Add the user's questions and the answers here.)*
+**Q (2026-10-11): So the output of a desk has the same distribution as its input?**
+A: Only in Burke's case: Poisson arrivals **and** exponential service (CV = 1). Then the people leaving are Poisson too, at the **arrival** rate λ (not the desk speed μ: a desk can't send out more people than it receives).
+
+**Q (2026-10-11): And if the service is not fully random?**
+A: Then the output is **not** random any more. It's a mix of the arrival pattern and the desk's pattern, and how busy the desk is decides which wins. A quiet desk mostly copies the arrivals; a busy desk sends people out at its own rhythm (a regular scanner at rush hour works like a metronome). A rough rule from factory physics: $C_{out}^2 pprox ho^2 C_s^2 + (1-ho^2) C_a^2$. In Throughput: making one desk more regular also helps the desks **after** it.
 
 ## Status
 
-- [ ] Read
-- [ ] Questions done
+- [x] Read
+- [x] Questions done
 - [x] Implemented (validation test)
 - [x] Strict test passes
