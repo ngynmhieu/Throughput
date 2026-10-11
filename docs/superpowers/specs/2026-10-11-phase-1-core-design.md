@@ -196,6 +196,7 @@ Each slice is **test-first**: write the test from a hand calculation or a formul
 - **From the S5 review (2026-10-11), deferred:**
   - **S7 (layout compiler):** reject loops of stations (A → B → A): with full lines they can block each other forever. Require unique station names (the run log matches visits by name). Decide what happens when a line is fed by both a Source and a station: walk-ins never wait, so desks feeding it can stay blocked (B4).
   - **S9 (results):** `Station.Busy` counts blocked desks too. Utilisation must use a separate serving vs blocked count, not `Busy / Staff`.
+- **S8 (actions), from the S6 review:** an action at time t is applied **after** `Run(t)`, so it sees the state after every event at or before t; a replay must do exactly the same (`Run(t)`, then apply, then continue). Record each action's exact time (the engine's `Now` when applied), never a sum of frame times. Add a test where an action lands exactly on an event's time. The game shows `LastActiveTime` as a run's end, never `Now`.
 - **S6: Done.** `Runner.Run(until)` now leaves `Now` exactly at `until`.
 - **S6/S9, from the S4 review: Done** (`Runner.LastActiveTime`). Ignored `Renege` alarms still move `Now`, so `Now` after a run is **not** the run's end. Timeline length, replay length and throughput must use the time of the last event that changed something (track a `LastActiveTime`). Stale alarms also stay in the event list (harmless).
 - **Any slice:** `Run()` with a renewal source and no stop time never ends; the starter levels must always set a wave end.
