@@ -37,7 +37,7 @@ throughput/
 │       │   ├── Layout/             compiler: plan → queueing network
 │       │   ├── Engine/             the engine (runs passengers through the network)
 │       │   │   └── Network/  Events/  Policies/  Behaviours/
-│       │   ├── Timeline/           what happened when, snapshots (read by Game)
+│       │   ├── Timeline/           what happened when, the recording (read by Game)
 │       │   ├── Results/            goal check, costs, perceived wait
 │       │   └── Tests/
 │       │       └── Throughput.Core.Tests.asmdef  (EditMode)

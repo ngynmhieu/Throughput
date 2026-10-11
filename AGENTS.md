@@ -32,7 +32,7 @@ Instructions for AI agents working on **Throughput**. Read this first, then the 
 
 - **Plan → Manage (D4):** layout is frozen during a run. Live manager actions only: routing, open/close lane, move staff, lane rules, signs. **1× speed only**, with pause. Scrubbable replay after the run.
 - **No result preview (D11).** **Random but fair events (D12):** a fixed event deck per level, random timing per attempt.
-- **Simulation:** discrete-event (event list), an **abstract queueing network** (not 3D space), **simulate first then replay**, **re-simulate from now** on manager actions.
+- **Simulation:** discrete-event (event list), an **abstract queueing network** (not 3D space), **simulate as you watch** (step the engine up to the playback time; manager actions apply live), then replay the recording.
 - **`Throughput.Core` never references Unity.** It must stay plain C#, testable headless.
 - **Determinism:** run seed + plan + timed manager actions must always produce the same timeline. Use separate random streams per source. Never use frame time or real time in the simulation.
 - **Pillars:** P1 every fix has a cost · P2 the cause is always visible · P3 fair, not lucky · P4 calm, not frantic.

@@ -32,6 +32,7 @@ while events remain and time < wave end:
 
 Same-time order (built so far): `EndService` → `Renege` → `Reach` → `Arrive`.
 
+- **Stepping:** `Run(until)` handles every event up to and including `until` and leaves the clock exactly at `until`, so the viewer can advance it frame by frame and actions land at an exact time. `LastActiveTime` is the real end of a run (ignored alarms don't count).
 - Threshold rules are re-checked whenever a queue length changes. A "for N seconds" condition schedules its own `CheckRule` event.
 - **Blocking (D8):** before a station sends a passenger onward, it checks for room downstream. If there is none, the station stays occupied (`Blocked`) until space frees up (`Unblocked`). This is the blocking-after-service rule.
 
@@ -74,7 +75,7 @@ Each policy is a small class behind an interface, chosen by the plan.
 - Each attempt gets a **run seed**, saved with the run.
 - One seeded random generator **per source of randomness**: arrivals, service times, patience, passenger types, **event timing**, and so on. All are derived from the run seed.
 - **Event deck (D12):** at the start of a run, each event in the level's deck (e.g. one breakdown) gets a random time and target from the event-timing stream. Events become ordinary entries in the event list (`Breakdown`, `Repaired`, `DelayedFlight`, `GroupArrives`).
-- **Why separate streams:** within one run, a manager action (e.g. opening a lane) doesn't reshuffle unrelated random numbers, so re-simulating from now changes only what the action affects.
+- **Why separate streams:** within one run, a manager action (e.g. opening a lane) doesn't reshuffle unrelated random numbers, so an action changes only what it affects.
 
 ## Time
 

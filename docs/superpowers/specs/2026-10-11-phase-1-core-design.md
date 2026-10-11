@@ -21,7 +21,7 @@ Build the queueing engine as plain C#, and **prove** it is right before any grap
 ## 2. Scope
 
 **In:**
-- All the structure: network nodes, event loop, capacity and blocking, policy / behaviour / observer interfaces, random streams, service-time distributions with a chosen CV, timeline with snapshots, re-simulate from a snapshot, event deck, results.
+- All the structure: network nodes, event loop, capacity and blocking, policy / behaviour / observer interfaces, random streams, service-time distributions with a chosen CV, stepping while the player watches, the recording, event deck, results.
 - Starter modules: FIFO, shortest-line routing, reneging, threshold open/close rule with setup time, scanner breakdown event, open/close lane manager action.
 - Level and plan data (JSON) and the layout compiler.
 
@@ -49,7 +49,7 @@ Assets/Core/
 │   ├── Policies/   IDiscipline, IRoutingPolicy, IStaffingRule + starters
 │   ├── Behaviours/ IBehaviour + Reneging
 │   └── Randomness/ Pcg32, RngStreams, distributions   ← new folder ("Random" would clash with System.Random)
-├── Timeline/   TimelineRecord, Timeline, Snapshot
+├── Timeline/   (empty for now: RunLog is the recording, C5)
 ├── Results/    RunStats, Results (goal check)
 └── Tests/      one folder per slice + Validation/ + Invariants/
 ```
@@ -94,8 +94,7 @@ Kingman: **±15%**, only at ρ ≥ 0.8, plus a trend test ("halving the service 
 
 - [x] Same seed + plan + actions → **identical** timeline (compared record by record)
 - [x] Different seed → different timeline
-- [ ] Re-simulating from a snapshot = the same run without stopping
-- [ ] A manager action changes only what it affects (separate random streams)
+- [x] Running in many small steps = the same run in one go (A2 revised)
 
 ### 5.5 How you can see it
 
@@ -141,10 +140,11 @@ Each slice is **test-first**: write the test from a hand calculation or a formul
 - [x] Hand tests: full buffer stops the scanner; space frees → the chain restarts in the right order
 - [x] Invariants on a 3-stage chain (built as ID check → scanner → bag check → exit, with blocking and giving up)
 
-### S6: Timeline, snapshots, re-simulate from now
-- [ ] `Timeline` of records; snapshot every 5 game-seconds (full state incl. random-stream states)
-- [ ] Re-simulate from any snapshot
-- [ ] All determinism tests in 5.4
+### S6: Stepping (simulate as you watch)
+- [x] `Run(until)` stops the clock exactly at `until`; refuses the past (C2, C3)
+- [x] `LastActiveTime` (true end) and `IsFinished` (C4)
+- [x] Many small steps = one run (determinism)
+- Snapshots and re-simulate-from-snapshot dropped: A2 revised to "simulate as you watch" (2026-10-11)
 
 ### S7: Level + plan data and the layout compiler
 - [ ] `LevelDef` (waves, passenger mix, event deck, space, goal) and `PlanDef` (placed objects, rules) as plain C# classes
@@ -159,7 +159,8 @@ Each slice is **test-first**: write the test from a hand calculation or a formul
 - [ ] Routing: shortest line (`IRoutingPolicy`)
 - [ ] Staffing rule: open when queue > X, close when < Y, with setup time (`IStaffingRule`, `CheckRule` event)
 - [ ] Event deck: scanner breakdown at a random time from the event-timing stream (`Breakdown` / `Repaired`)
-- [ ] Manager action: open/close lane at time t, applied via re-simulate from now
+- [ ] Manager action: open/close lane at time t, applied to the live engine at t
+- [ ] A manager action changes only what it affects (separate random streams) (moved from 5.4)
 - [ ] Hand tests for each; invariants on all
 
 ### S9: Results + fairness
@@ -186,7 +187,7 @@ Each slice is **test-first**: write the test from a hand calculation or a formul
 | Q2 | Which distribution for "any CV": gamma or lognormal? | Decided: gamma (2026-10-11). |
 | Q3 | Private field style: `_camelCase` or Unity's `m_camelCase` | Decided: `_camelCase` (2026-10-11). |
 | Q4 | Sample level for S7–S9: simple 2-stage checkpoint, one wave, one breakdown | Yes, keep it tiny |
-| Q5 | Determinism across machines: `Math.Log/Cos/Pow` aren't guaranteed bit-identical across runtimes/CPUs, so a seed may replay differently on another build or platform | **For now: deterministic per build and platform** (replays, re-sim and tests are safe). Revisit only if seeds or replays are shared between machines (own math functions or fixed-point). Found in review 2026-10-11. |
+| Q5 | Determinism across machines: `Math.Log/Cos/Pow` aren't guaranteed bit-identical across runtimes/CPUs, so a seed may replay differently on another build or platform | **For now: deterministic per build and platform** (replays and tests are safe). Revisit only if seeds or replays are shared between machines (own math functions or fixed-point). Found in review 2026-10-11. |
 
 **Notes for later slices (from the part 1 review, 2026-10-11):**
 - **S4 (reneging): Done.** `PassengerRecord.Wait` now counts time in line until service starts *or* until the passenger gives up, and Little's Law passes with renegers.
@@ -195,8 +196,8 @@ Each slice is **test-first**: write the test from a hand calculation or a formul
 - **From the S5 review (2026-10-11), deferred:**
   - **S7 (layout compiler):** reject loops of stations (A → B → A): with full lines they can block each other forever. Require unique station names (the run log matches visits by name). Decide what happens when a line is fed by both a Source and a station: walk-ins never wait, so desks feeding it can stay blocked (B4).
   - **S9 (results):** `Station.Busy` counts blocked desks too. Utilisation must use a separate serving vs blocked count, not `Busy / Staff`.
-- **S6 (re-sim):** `Runner.Run(until)` leaves `Now` at the last event, not at `until`.
-- **S6/S9, from the S4 review:** ignored `Renege` alarms still move `Now`, so `Now` after a run is **not** the run's end. Timeline length, replay length and throughput must use the time of the last event that changed something (track a `LastActiveTime`). Stale alarms also stay in the event list; a snapshot copies them (harmless, slightly bigger).
+- **S6: Done.** `Runner.Run(until)` now leaves `Now` exactly at `until`.
+- **S6/S9, from the S4 review: Done** (`Runner.LastActiveTime`). Ignored `Renege` alarms still move `Now`, so `Now` after a run is **not** the run's end. Timeline length, replay length and throughput must use the time of the last event that changed something (track a `LastActiveTime`). Stale alarms also stay in the event list (harmless).
 - **Any slice:** `Run()` with a renewal source and no stop time never ends; the starter levels must always set a wave end.
 
 ## Progress
@@ -209,7 +210,7 @@ Each slice is **test-first**: write the test from a hand calculation or a formul
 | S3 | Service variability, P-K, Kingman | Done (2026-10-11: strict P-K at ρ 0.8/0.9, Cs 0/0.5/1, all within 0.7%; Kingman 5 cases within 7.7%, trend ratio 0.396 vs 0.400) |
 | S4 | Reneging, Erlang A | Done (strict Erlang A passed 2026-10-11: c 2/3/1 at ρ 0.9/1.2/1.0; wait and share who gave up all within 0.2%) |
 | S5 | Stages, buffers, blocking | Done (2026-10-11: strict tandem vs Burke, ID 4.019 / scanner 4.039 vs 4.000; blocking hand tests and busy 3-stage invariants pass) |
-| S6 | Timeline, snapshots, re-sim | Not started |
+| S6 | Stepping (simulate as you watch) | Done (2026-10-11) |
 | S7 | Level/plan JSON, layout compiler | Not started |
 | S8 | Policies, rules, breakdown, manager action | Not started |
 | S9 | Results, fairness | Not started |
@@ -229,6 +230,14 @@ Each slice is **test-first**: write the test from a hand calculation or a formul
 - B6: same-time order `EndService` → `Renege` → `Reach` → `Arrive`.
 - B7: per-visit records; `Station`/`QueueJoin`/`ServiceStart`/`ServiceEnd`/`Wait` stay as first-visit shortcuts.
 
+**S6 decisions (2026-10-11, plan part 5):**
+- C1: A2 revised to "simulate as you watch" (user's choice, option C): no snapshots, no re-simulate.
+- C2: `Run(until)` leaves the clock exactly at `until` (finite).
+- C3: `Run(until)` refuses a time in the past.
+- C4: `LastActiveTime` is the real end (ignored alarms don't count); `IsFinished` when the calendar is empty.
+- C5: no separate `Timeline` class yet; `RunLog` is the recording.
+- C6: manager actions arrive in S8.
+
 ## Change log
 
 | Date | Change |
@@ -239,3 +248,4 @@ Each slice is **test-first**: write the test from a hand calculation or a formul
 | 2026-10-11 | S0 and S1 done: PCG32, streams, distributions, event loop, invariants, M/M/1 validated |
 | 2026-10-11 | Review: FIFO invariant added; Q5 (determinism per build) and notes for S4–S6 recorded |
 | 2026-10-11 | S7: added realistic time ranges (minimum + random part, hard max safety net) for game levels |
+| 2026-10-11 | A2 revised: simulate as you watch (no snapshots, no re-sim); S6 rescoped and done |
