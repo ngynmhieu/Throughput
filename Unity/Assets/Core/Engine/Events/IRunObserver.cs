@@ -13,7 +13,10 @@ namespace Throughput.Core.Engine.Events
 
         void OnEndService(double time, Station station, Passenger passenger);
 
-        /// <summary>The passenger's patience ran out and they left the line (and the checkpoint).</summary>
+        /// <summary>
+        /// The passenger's patience ran out and they left the line and the checkpoint (a missed flight).
+        /// No OnExit follows: viewers must treat this as leaving.
+        /// </summary>
         void OnRenege(double time, Station station, Passenger passenger);
 
         void OnExit(double time, Passenger passenger);

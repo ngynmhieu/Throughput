@@ -189,7 +189,9 @@ Each slice is **test-first**: write the test from a hand calculation or a formul
 **Notes for later slices (from the part 1 review, 2026-10-11):**
 - **S4 (reneging): Done.** `PassengerRecord.Wait` now counts time in line until service starts *or* until the passenger gives up, and Little's Law passes with renegers.
 - **S5 (several stations):** `PassengerRecord` holds one visit (`Station`, `QueueJoin`, `Wait`); make it per-visit, and `Station.Finish` must hand passengers to the next stage instead of calling Exit.
+- **S5, from the S4 review:** a `Renege` alarm is keyed on (station, passenger). If a passenger can come back to the **same** station (re-screen, loop), an old alarm could remove them early: give each visit a number and ignore alarms from an older visit. Also use one patience stream per station (`patience:<station>`), not one shared stream.
 - **S6 (re-sim):** `Runner.Run(until)` leaves `Now` at the last event, not at `until`.
+- **S6/S9, from the S4 review:** ignored `Renege` alarms still move `Now`, so `Now` after a run is **not** the run's end. Timeline length, replay length and throughput must use the time of the last event that changed something (track a `LastActiveTime`). Stale alarms also stay in the event list; a snapshot copies them (harmless, slightly bigger).
 - **Any slice:** `Run()` with a renewal source and no stop time never ends; the starter levels must always set a wave end.
 
 ## Progress
