@@ -300,5 +300,25 @@ namespace Throughput.Core.Tests.Layout
             StringAssert.Contains("open above", all);
             StringAssert.Contains("setup time must be 0 or more", all);
         }
+
+        [Test]
+        public void Json_ReadsExtras()
+        {
+            LevelDef level = LevelJson.ReadLevel(@"{ ""name"": ""x"", ""waves"": [], ""stages"": [], ""space"": 0,
+                ""maxMissedFlights"": 5, ""extras"": { ""maxWait"": 15, ""maxStaffMinutes"": 600 } }");
+            Assert.That((level.Extras.MaxWait, level.Extras.MaxStaffMinutes), Is.EqualTo(((double?)15.0, (double?)600.0)));
+        }
+
+        [Test]
+        public void Check_GoalAndExtrasProblems()
+        {
+            LevelDef level = Level;
+            level.MaxMissedFlights = -1;
+            level.Extras = new ExtrasDef { MaxWait = 0, MaxStaffMinutes = double.PositiveInfinity };
+            string all = string.Join(" | ", LayoutCompiler.Check(level, LevelJson.ReadPlan(SampleLevels.Plan)));
+            StringAssert.Contains("missed flights", all);
+            StringAssert.Contains("longest wait", all);
+            StringAssert.Contains("staff-minutes", all);
+        }
     }
 }

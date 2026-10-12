@@ -169,6 +169,15 @@ namespace Throughput.Core.Layout
                     problems.Add($"{what} must happen between two times, 0 or later, in order ({b.From}–{b.To}).");
                 CheckDistribution(b.Repair, $"{what} repair time", problems);
             }
+            if (level.MaxMissedFlights < 0)
+                problems.Add($"The goal can't allow fewer than 0 missed flights ({level.MaxMissedFlights}).");
+            if (level.Extras != null)
+            {
+                if (level.Extras.MaxWait.HasValue && (!(level.Extras.MaxWait.Value > 0) || double.IsInfinity(level.Extras.MaxWait.Value)))
+                    problems.Add($"The longest wait extra needs a number above 0 ({level.Extras.MaxWait.Value}).");
+                if (level.Extras.MaxStaffMinutes.HasValue && (!(level.Extras.MaxStaffMinutes.Value > 0) || double.IsInfinity(level.Extras.MaxStaffMinutes.Value)))
+                    problems.Add($"The staff-minutes extra needs a number above 0 ({level.Extras.MaxStaffMinutes.Value}).");
+            }
             if (level.Space < 0)
                 problems.Add($"The level's space can't be negative ({level.Space}).");
         }

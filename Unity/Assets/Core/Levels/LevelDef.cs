@@ -26,6 +26,9 @@ namespace Throughput.Core.Levels
 
         /// <summary>The main goal (D9). Checked in S9.</summary>
         public int MaxMissedFlights { get; set; }
+
+        /// <summary>Optional extra challenges beside the goal (D9, G1); null = none.</summary>
+        public ExtrasDef Extras { get; set; }
     }
 
     public sealed class WaveDef
@@ -56,6 +59,14 @@ namespace Throughput.Core.Levels
         public double To { get; set; }
 
         public DistributionDef Repair { get; set; }
+    }
+
+    /// <summary>Optional ticks (G1): nobody waits over MaxWait minutes; at most MaxStaffMinutes staff-minutes.</summary>
+    public sealed class ExtrasDef
+    {
+        public double? MaxWait { get; set; }
+
+        public double? MaxStaffMinutes { get; set; }
     }
 
     /// <summary>

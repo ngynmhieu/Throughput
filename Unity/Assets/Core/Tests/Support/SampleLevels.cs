@@ -25,6 +25,14 @@ namespace Throughput.Core.Tests.Support
   ]
 }";
 
+        /// <summary>Only 2 ID desks: the second flight bank overloads it (fails on most seeds, G7).</summary>
+        public const string ShortStaffedPlan = @"{
+  ""stages"": [
+    { ""type"": ""id"",      ""staff"": 2, ""walkToNext"": 0.5 },
+    { ""type"": ""scanner"", ""staff"": 2, ""lineCapacity"": 12 }
+  ]
+}";
+
         /// <summary>The scanner as 3 separate lanes, 2 open at the start, 4 places in each line.</summary>
         public const string LanesPlan = @"{
   ""stages"": [
