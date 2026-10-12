@@ -20,6 +20,7 @@ namespace Throughput.Core.Tests.Support
             if (lineCapacity != null)
                 AssertLineCapacity(log, lineCapacity);
             AssertFirstComeFirstServed(log);
+            AssertClosedLanesGetNoNewPeople(log);
             if (expectDrained)
                 AssertLittlesLaw(log);
         }
@@ -138,6 +139,29 @@ namespace Throughput.Core.Tests.Support
                 {
                     Assert.That(line.Remove(e.PassengerId), Is.True,
                         $"Passenger {e.PassengerId} gave up at '{e.Station}' at {e.Time} but wasn't in its line.");
+                }
+            }
+        }
+
+        /// <summary>
+        /// N5: nobody chooses a closed lane. People who chose it before it closed (still walking) may arrive later.
+        /// A passenger chooses when they leave the previous desk, or on arrival for the first stage (N4).
+        /// </summary>
+        private static void AssertClosedLanesGetNoNewPeople(RunLog log)
+        {
+            var closedAt = new Dictionary<string, double>();
+            foreach (LogEntry e in log.Entries)
+            {
+                if (e.Kind == LogKind.LaneClosed) closedAt[e.Station] = e.Time;
+                else if (e.Kind == LogKind.LaneOpened) closedAt.Remove(e.Station);
+                else if (e.Kind == LogKind.JoinQueue && closedAt.TryGetValue(e.Station, out double closed))
+                {
+                    PassengerRecord p = log.Passengers[e.PassengerId];
+                    int i = p.Visits.Count - 1;
+                    while (i >= 0 && !(p.Visits[i].Station == e.Station && p.Visits[i].QueueJoin == e.Time)) i--;
+                    double chose = i <= 0 ? p.Arrive : p.Visits[i - 1].LeftAt;
+                    Assert.That(chose, Is.LessThanOrEqualTo(closed),
+                        $"Passenger {e.PassengerId} chose '{e.Station}' at {chose}, after it closed at {closed}.");
                 }
             }
         }

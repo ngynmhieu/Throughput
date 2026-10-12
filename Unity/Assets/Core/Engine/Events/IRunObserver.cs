@@ -25,6 +25,9 @@ namespace Throughput.Core.Engine.Events
         /// </summary>
         void OnRenege(double time, Station station, Passenger passenger);
 
+        /// <summary>The manager opened or closed a lane (N7). A closed lane still serves its line.</summary>
+        void OnLaneSwitched(double time, Station lane, bool open);
+
         void OnExit(double time, Passenger passenger);
     }
 }

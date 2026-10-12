@@ -46,6 +46,33 @@ namespace Throughput.Core.Engine.Events
         }
 
         /// <summary>
+        /// Manager action (N6, N7): the lane takes new people from now on and blocked desks upstream move on.
+        /// Call it after Run(t), so it sees every event at or before t. Opening an open lane does nothing.
+        /// </summary>
+        public void OpenLane(Station lane)
+        {
+            if (lane == null) throw new ArgumentNullException(nameof(lane));
+            if (lane.IsOpen) return;
+            lane.SetOpen(true);
+            foreach (IRunObserver o in _observers) o.OnLaneSwitched(Now, lane, true);
+            lane.Stage?.ReleaseBlocked(this);
+        }
+
+        /// <summary>
+        /// Manager action (N5, N7): the lane gets nobody new but serves everyone already in its line, at its
+        /// desk, or walking to it (it drains). The last open lane of a stage can't be closed.
+        /// </summary>
+        public void CloseLane(Station lane)
+        {
+            if (lane == null) throw new ArgumentNullException(nameof(lane));
+            if (!lane.IsOpen) return;
+            if (lane.Stage != null && lane.Stage.OpenLanes == 1)
+                throw new InvalidOperationException($"'{lane.Name}' is the last open lane of '{lane.Stage.Name}'.");
+            lane.SetOpen(false);
+            foreach (IRunObserver o in _observers) o.OnLaneSwitched(Now, lane, false);
+        }
+
+        /// <summary>
         /// Handles every event up to and including time <paramref name="until"/>, then stops the clock exactly
         /// at <paramref name="until"/> (when it's finite). Call it again with a later time to continue: this is
         /// how the game steps the run while the player watches. Run() with no argument runs to the end.

@@ -112,5 +112,101 @@ namespace Throughput.Core.Tests.Engine
             new Source("entry", new FixedArrivals(0.0), scan);
             Assert.That(scan.Stage, Is.SameAs(id.Next), "a source feeding scan reuses its stage");
         }
+
+        [Test]
+        public void CloseLane_Drains()
+        {
+            // Two lanes, 100 s. Four people at 0: A s1, B s2, C s1, D s2. Close s2 at 50.
+            // E at 60 and F at 70 must go to s1. s2 still serves D (100–200): it drains.
+            // s1: A 0–100, C 100–200, E 200–300, F 300–400.
+            Station s1 = Desk("s1", 100.0), s2 = Desk("s2", 100.0);
+            var (runner, log) = Start(Lanes("scan", s1, s2), 0.0, 0.0, 0.0, 0.0, 60.0, 70.0);
+            runner.Run(50.0);
+            runner.CloseLane(s2);
+            runner.Run();
+
+            var p = log.Passengers;
+            Assert.That(p.Select(r => r.Station), Is.EqualTo(new[] { "s1", "s2", "s1", "s2", "s1", "s1" }));
+            Assert.That(p[3].ServiceEnd, Is.EqualTo(200.0));
+            Assert.That(p.Select(r => r.Exit), Is.EqualTo(new[] { 100.0, 100.0, 200.0, 200.0, 300.0, 400.0 }));
+            LogEntry closed = log.Entries.Single(e => e.Kind == LogKind.LaneClosed);
+            Assert.That((closed.Time, closed.Station, closed.PassengerId), Is.EqualTo((50.0, "s2", -1)));
+            Assert.That(s2.IsOpen, Is.False);
+            InvariantChecker.AssertAll(log, Staff(s1, s2));
+        }
+
+        [Test]
+        public void OpenLane_TakesNewPeopleAtOnce()
+        {
+            // s2 starts closed. A, B, C at 0 all go to s1. Open s2 at 50; D at 60 goes to s2 (empty).
+            // Nobody already in s1's line moves (no jockeying, N10).
+            Station s1 = Desk("s1", 100.0), s2 = Desk("s2", 100.0);
+            var (runner, log) = Start(Lanes("scan", s1, s2), 0.0, 0.0, 0.0, 60.0);
+            runner.CloseLane(s2);
+            runner.Run(50.0);
+            runner.OpenLane(s2);
+            runner.Run();
+
+            var p = log.Passengers;
+            Assert.That(p.Select(r => r.Station), Is.EqualTo(new[] { "s1", "s1", "s1", "s2" }));
+            Assert.That(p.Select(r => r.ServiceStart), Is.EqualTo(new[] { 0.0, 100.0, 200.0, 60.0 }));
+            Assert.That(log.Entries.Where(e => e.PassengerId == -1).Select(e => (e.Time, e.Kind)),
+                Is.EqualTo(new[] { (0.0, LogKind.LaneClosed), (50.0, LogKind.LaneOpened) }));
+            InvariantChecker.AssertAll(log, Staff(s1, s2));
+        }
+
+        [Test]
+        public void OpenLane_ReleasesBlockedDesk()
+        {
+            // ID 10 s → s1 (open) and s2 (closed), 100 s, each line holds 1. Three people at 0.
+            // A: ID 0–10, s1 10–110. B: ID 10–20, s1's line (full). C: ID 20–30 → BLOCKED.
+            // Open s2 at 50 → C released at 50, joins s2 and starts at once.
+            Station id = Desk("id", 10.0);
+            Station s1 = Desk("s1", 100.0, lineCapacity: 1), s2 = Desk("s2", 100.0, lineCapacity: 1);
+            id.ConnectTo(Lanes("scan", s1, s2));
+            var (runner, log) = Start(id, 0.0, 0.0, 0.0);
+            runner.CloseLane(s2);
+            runner.Run(50.0);
+            runner.OpenLane(s2);
+            runner.Run();
+
+            var c = log.Passengers[2];
+            Assert.That(c.Visits[0].Unblocked, Is.EqualTo(50.0));
+            Assert.That(c.Visits[1].Station, Is.EqualTo("s2"));
+            Assert.That(c.Visits[1].ServiceStart, Is.EqualTo(50.0));
+            InvariantChecker.AssertAll(log, Staff(id, s1, s2),
+                lineCapacity: new Dictionary<string, int> { { "s1", 1 }, { "s2", 1 } });
+        }
+
+        [Test]
+        public void Action_AtAnEventTime_SeesThatEvent()
+        {
+            // Two lanes, 100 s. A at 0 → s1. B arrives at exactly 50 and picks s2.
+            // Closing s2 after Run(50) comes after B's arrival: B stays in s2 and is served there.
+            Station s1 = Desk("s1", 100.0), s2 = Desk("s2", 100.0);
+            var (runner, log) = Start(Lanes("scan", s1, s2), 0.0, 50.0);
+            runner.Run(50.0);
+            runner.CloseLane(s2);
+            runner.Run();
+
+            Assert.That(log.Passengers[1].Station, Is.EqualTo("s2"));
+            Assert.That(log.Passengers[1].Exit, Is.EqualTo(150.0));
+            InvariantChecker.AssertAll(log, Staff(s1, s2));
+        }
+
+        [Test]
+        public void CloseLane_Rules()
+        {
+            Station s1 = Desk("s1", 100.0), s2 = Desk("s2", 100.0);
+            var (runner, log) = Start(Lanes("scan", s1, s2), 0.0);
+            runner.CloseLane(s2);
+            runner.CloseLane(s2); // already closed: nothing happens
+            var e = Assert.Throws<System.InvalidOperationException>(() => runner.CloseLane(s1));
+            StringAssert.Contains("last open lane", e.Message);
+            runner.OpenLane(s1);  // already open: nothing happens
+            Assert.Throws<System.ArgumentNullException>(() => runner.CloseLane(null));
+            Assert.That(log.Entries.Count(x => x.PassengerId == -1), Is.EqualTo(1));
+            Assert.That(s1.IsOpen, Is.True);
+        }
     }
 }

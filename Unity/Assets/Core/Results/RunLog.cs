@@ -16,6 +16,8 @@ namespace Throughput.Core.Results
         Blocked,
         Unblocked,
         Exit,
+        LaneOpened,
+        LaneClosed,
     }
 
     /// <summary>One step of the run, with the engine's own queue length and busy count right after it.</summary>
@@ -35,6 +37,7 @@ namespace Throughput.Core.Results
 
         public LogKind Kind { get; }
 
+        /// <summary>-1 for lane actions (LaneOpened, LaneClosed).</summary>
         public int PassengerId { get; }
 
         /// <summary>Null for Arrive and Exit.</summary>
@@ -210,6 +213,13 @@ namespace Throughput.Core.Results
         {
             _passengers[passenger.Id].Exit = time;
             Add(time, LogKind.Exit, passenger, null);
+        }
+
+        public void OnLaneSwitched(double time, Station lane, bool open)
+        {
+            if (!_keepEntries) return;
+            _entries.Add(new LogEntry(time, open ? LogKind.LaneOpened : LogKind.LaneClosed, -1, lane.Name,
+                lane.QueueLength, lane.Busy));
         }
 
         private void Add(double time, LogKind kind, Passenger passenger, Station station)
