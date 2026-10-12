@@ -59,12 +59,17 @@ namespace Throughput.Core.Engine.Policies
                         return;
                     }
             }
-            else if (perLane < CloseBelow && open > 1)
+            else if (perLane < CloseBelow && open > 1 && (double)waiting / (open - 1) <= OpenAbove)
             {
+                // Only close if the lanes left wouldn't be over OpenAbove at once (that would flip it back open),
+                // and never close the last open lane that works (a broken lane serves nobody).
+                int working = 0;
+                foreach (Station lane in Stage.Lanes)
+                    if (lane.IsOpen && !lane.IsBroken) working++;
                 for (int i = Stage.Lanes.Count - 1; i >= 0; i--)
                 {
                     Station lane = Stage.Lanes[i];
-                    if (lane.IsOpen && !lane.IsManual)
+                    if (lane.IsOpen && !lane.IsManual && (lane.IsBroken || working > 1))
                     {
                         runner.CloseByRule(lane);
                         return;

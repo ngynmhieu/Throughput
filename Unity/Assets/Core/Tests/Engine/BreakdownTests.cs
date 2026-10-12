@@ -109,5 +109,19 @@ namespace Throughput.Core.Tests.Engine
             runner.Run();
             Assert.Throws<System.InvalidOperationException>(() => runner.AddBreakdown(stage, 5.0, new Deterministic(1.0), rng));
         }
+
+        [Test]
+        public void Breakdown_AfterEveryoneLeft_DoesNotStretchTheRun()
+        {
+            // One person, 0–100. The breakdown at 150 hits an empty checkpoint: the run really ended at 100.
+            Station s1 = Desk("s1", 100.0);
+            Router stage = Lanes("scan", s1);
+            var (runner, log) = Start(new Source("entry", new FixedArrivals(0.0), stage));
+            runner.AddBreakdown(stage, 150.0, new Deterministic(10.0), new Pcg32(1UL, 1UL));
+            runner.Run(120.0);
+            Assert.That(runner.IsFinished, Is.True, "nobody inside and no arrivals to come");
+            runner.Run();
+            Assert.That(runner.LastActiveTime, Is.EqualTo(100.0));
+        }
     }
 }

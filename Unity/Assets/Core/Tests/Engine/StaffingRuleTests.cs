@@ -122,5 +122,51 @@ namespace Throughput.Core.Tests.Engine
             Assert.Throws<System.ArgumentOutOfRangeException>(() => new StaffingRule(stage, double.PositiveInfinity, 1.0, 0.0));
             Assert.Throws<System.ArgumentOutOfRangeException>(() => new StaffingRule(stage, 2.0, 1.0, -1.0));
         }
+
+        [Test]
+        public void Rule_DoesNotFlipALaneOpenAndShut()
+        {
+            // Open above 3, close below 2.5, no setup. Five people at 0: A served, 4 wait → open s2 at once.
+            // Now 4 / 2 = 2 < 2.5, but closing would put 4 back on one lane (4 > 3) and reopen it: the rule must
+            // not close while that is true. So s2 opens once and stays.
+            Station s1 = Desk("s1"), s2 = Desk("s2");
+            var stage = new Router("scan", new[] { s1, s2 }, ShortestLine.Instance);
+            var runner = new Runner(new Source("entry", new FixedArrivals(0.0, 0.0, 0.0, 0.0, 0.0), stage));
+            var log = new RunLog();
+            runner.AddObserver(log);
+            runner.CloseLane(s2);
+            runner.ReturnToRule(s2);
+            runner.AddRule(new StaffingRule(stage, 3.0, 2.5, 0.0));
+            runner.Run();
+
+            Assert.That(log.Entries.Count(e => e.Kind == LogKind.LaneOpening), Is.EqualTo(1));
+            Assert.That(log.Entries.Any(e => e.Kind == LogKind.LaneClosed && !e.ByManager && e.Time < 100.0), Is.False,
+                "closed the lane it had just opened");
+        }
+
+        [Test]
+        public void Rule_NeverClosesTheLastWorkingLane()
+        {
+            // Two lanes, 100 s. A → s1, B → s2 at 0; C at 1 waits at s1. A stream is picked so the breakdown at 5 hits
+            // s1 (repaired at 200). The rule is added at 6 (close below 1). At 100 B leaves: 1 waiting / 2 lanes = 0.5,
+            // but s2 is the only working lane: it must stay open, so D at 150 is served there.
+            ulong id = 1;
+            while (new Pcg32(9UL, id).NextUInt() % 2 != 0) id++;
+            Station s1 = Desk("s1"), s2 = Desk("s2");
+            var stage = new Router("scan", new[] { s1, s2 }, ShortestLine.Instance);
+            var runner = new Runner(new Source("entry", new FixedArrivals(0.0, 0.0, 1.0, 150.0), stage));
+            var log = new RunLog();
+            runner.AddObserver(log);
+            runner.AddBreakdown(stage, 5.0, new Deterministic(195.0), new Pcg32(9UL, id));
+            runner.Run(6.0);
+            runner.AddRule(new StaffingRule(stage, 5.0, 1.0, 0.0));
+            runner.Run();
+
+            Assert.That(log.Entries.First(e => e.Kind == LogKind.LaneBroken).Station, Is.EqualTo("s1"));
+            Assert.That(log.Entries.Any(e => e.Kind == LogKind.LaneClosed && e.Station == "s2" && e.Time < 200.0), Is.False);
+            Assert.That(log.Passengers[3].Station, Is.EqualTo("s2"));
+            Assert.That(log.Passengers[3].ServiceStart, Is.EqualTo(150.0));
+            InvariantChecker.AssertAll(log, Staff);
+        }
     }
 }

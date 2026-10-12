@@ -20,6 +20,8 @@ namespace Throughput.Core.Engine.Events
         private readonly List<StaffingRule> _rules = new List<StaffingRule>();
         private readonly Source[] _sources;
         private int _nextPassengerId;
+        private int _inside;
+        private int _arrivalsPending;
         private bool _started;
 
         public Runner(params Source[] sources)
@@ -36,8 +38,11 @@ namespace Throughput.Core.Engine.Events
         /// <summary>Time of the last event that changed something (ignored patience alarms don't count): the run's real end.</summary>
         public double LastActiveTime { get; private set; }
 
-        /// <summary>Nothing is left on the calendar: no arrivals to come, nobody in the checkpoint.</summary>
-        public bool IsFinished => _started && _events.Count == 0;
+        /// <summary>
+        /// No arrivals to come and nobody in the checkpoint. Deck events (a breakdown or repair) may still be on the
+        /// calendar, but they change nothing that matters to anyone.
+        /// </summary>
+        public bool IsFinished => _started && (_events.Count == 0 || (_inside == 0 && _arrivalsPending == 0));
 
         public void AddObserver(IRunObserver observer)
         {
@@ -193,11 +198,13 @@ namespace Throughput.Core.Engine.Events
 
         internal void NotifyRenege(Station station, Passenger p)
         {
+            _inside--;
             foreach (IRunObserver o in _observers) o.OnRenege(Now, station, p);
         }
 
         internal void NotifyExit(Passenger p)
         {
+            _inside--;
             foreach (IRunObserver o in _observers) o.OnExit(Now, p);
         }
 
@@ -225,6 +232,8 @@ namespace Throughput.Core.Engine.Events
             {
                 case EventType.Arrive:
                     var source = (Source)e.Node;
+                    _arrivalsPending--;
+                    _inside++;
                     var passenger = new Passenger(_nextPassengerId++, Now);
                     foreach (IRunObserver o in _observers) o.OnArrive(Now, passenger);
                     ScheduleNextArrival(source);
@@ -243,7 +252,7 @@ namespace Throughput.Core.Engine.Events
                     var ready = (Station)e.Node;
                     if (ready.ReadyAt != Now) return false; // the manager cancelled this setup
                     OpenNow(ready, byManager: false);
-                    return true;
+                    return _inside > 0; // with nobody inside it changes nothing: not part of the run's real length
                 case EventType.Breakdown:
                     var breakdown = (Breakdown)e.Node;
                     Station broken = breakdown.PickLane();
@@ -251,12 +260,12 @@ namespace Throughput.Core.Engine.Events
                     Notify(broken, LaneChange.Broken, byManager: false);
                     broken.Break(this);
                     Schedule(Now + breakdown.Repair.Sample(breakdown.Rng), EventType.Repair, broken, null);
-                    return true;
+                    return _inside > 0;
                 case EventType.Repair:
                     var repaired = (Station)e.Node;
                     Notify(repaired, LaneChange.Repaired, byManager: false);
                     repaired.Repair(this);
-                    return true;
+                    return _inside > 0;
                 default:
                     throw new InvalidOperationException($"Unhandled event type {e.Type}.");
             }
@@ -265,7 +274,10 @@ namespace Throughput.Core.Engine.Events
         private void ScheduleNextArrival(Source source)
         {
             if (source.Arrivals.TryNext(Now, out double time) && time < source.StopTime)
+            {
                 Schedule(time, EventType.Arrive, source, null);
+                _arrivalsPending++;
+            }
         }
     }
 }
