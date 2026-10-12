@@ -2,10 +2,15 @@ using System;
 
 namespace Throughput.Core.Engine.Network
 {
-    /// <summary>Where passengers appear. Sends each new passenger to its target station.</summary>
+    /// <summary>Where passengers appear. Sends each new passenger to a lane of its target stage.</summary>
     public sealed class Source
     {
         public Source(string name, IArrivalProcess arrivals, Station target, double stopTime = double.PositiveInfinity)
+            : this(name, arrivals, target == null ? null : Router.For(target), stopTime)
+        {
+        }
+
+        public Source(string name, IArrivalProcess arrivals, Router target, double stopTime = double.PositiveInfinity)
         {
             if (string.IsNullOrEmpty(name)) throw new ArgumentException("A source needs a name.", nameof(name));
             Name = name;
@@ -18,7 +23,7 @@ namespace Throughput.Core.Engine.Network
 
         public IArrivalProcess Arrivals { get; }
 
-        public Station Target { get; }
+        public Router Target { get; }
 
         /// <summary>No arrivals at or after this time (the end of the wave).</summary>
         public double StopTime { get; }

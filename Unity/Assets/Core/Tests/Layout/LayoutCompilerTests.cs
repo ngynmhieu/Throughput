@@ -18,7 +18,7 @@ namespace Throughput.Core.Tests.Layout
 
             Assert.That(run.Stations.Select(s => s.Name), Is.EqualTo(new[] { "id", "scanner" }));
             Assert.That(run.Stations[0].Staff, Is.EqualTo(3));
-            Assert.That(run.Stations[0].Next, Is.SameAs(run.Stations[1]));
+            Assert.That(run.Stations[0].Next.Lanes, Is.EqualTo(new[] { run.Stations[1] }));
             Assert.That(run.Stations[0].WalkTime, Is.EqualTo(0.5));
             Assert.That(run.Stations[1].LineCapacity, Is.EqualTo(12));
             Assert.That(run.Stations[1].Next, Is.Null);

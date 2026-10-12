@@ -126,7 +126,9 @@ namespace Throughput.Core.Engine.Events
                     var passenger = new Passenger(_nextPassengerId++, Now);
                     foreach (IRunObserver o in _observers) o.OnArrive(Now, passenger);
                     ScheduleNextArrival(source);
-                    source.Target.Accept(this, passenger);
+                    Station lane = source.Target.PickAny()
+                        ?? throw new InvalidOperationException($"Every lane of '{source.Target.Name}' is closed.");
+                    lane.Accept(this, passenger);
                     return true;
                 case EventType.EndService:
                     ((Station)e.Node).Finish(this, e.Passenger);

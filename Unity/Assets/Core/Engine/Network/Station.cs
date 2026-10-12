@@ -6,16 +6,15 @@ using Throughput.Core.Engine.Randomness;
 namespace Throughput.Core.Engine.Network
 {
     /// <summary>
-    /// A stage with one FIFO line and Staff servers, each serving one passenger at a time.
-    /// People may leave the line early (reneging). After service a passenger walks to Next, or exits
-    /// if there is none. If Next's line is full, the desk keeps the passenger and stops (blocking, D8)
-    /// until a spot frees up.
+    /// One line and Staff desks, each serving one passenger at a time: a shared line, or one lane of a
+    /// stage (N2). People may leave the line early (reneging). After service a passenger walks to a lane
+    /// of the Next stage, or exits if there is none. If every open lane there is full, the desk keeps the
+    /// passenger and stops (blocking, D8) until a spot frees up.
     /// </summary>
     public sealed class Station
     {
         private readonly LinkedList<Passenger> _line = new LinkedList<Passenger>();
         private readonly Dictionary<Passenger, LinkedListNode<Passenger>> _inLine = new Dictionary<Passenger, LinkedListNode<Passenger>>();
-        private readonly LinkedList<(Station From, Passenger Passenger)> _blockedUpstream = new LinkedList<(Station, Passenger)>();
         private readonly IDistribution _service;
         private readonly Pcg32 _rng;
         private int _busy;
@@ -43,8 +42,14 @@ namespace Throughput.Core.Engine.Network
         /// </summary>
         public int LineCapacity { get; }
 
-        /// <summary>The station passengers go to after this one; null means they exit.</summary>
-        public Station Next { get; private set; }
+        /// <summary>The stage this station is a lane of (set by the Router); null until something feeds it.</summary>
+        public Router Stage { get; internal set; }
+
+        /// <summary>The stage passengers go to after this one; null means they exit.</summary>
+        public Router Next { get; private set; }
+
+        /// <summary>A closed lane gets nobody new but still serves its line (N5).</summary>
+        public bool IsOpen { get; private set; } = true;
 
         public double WalkTime { get; private set; }
 
@@ -54,12 +59,26 @@ namespace Throughput.Core.Engine.Network
         /// <summary>People waiting in line (not counting those being served or walking here).</summary>
         public int QueueLength => _line.Count;
 
-        private bool HasRoom => _line.Count + _walkingHere < LineCapacity;
+        /// <summary>People who chose this line and are walking here.</summary>
+        public int WalkingHere => _walkingHere;
 
+        internal bool HasRoom => _line.Count + _walkingHere < LineCapacity;
+
+        internal void SetOpen(bool open) => IsOpen = open;
+
+        /// <summary>Feed a single station (a shared line).</summary>
         public void ConnectTo(Station next, double walkTime = 0.0)
         {
             if (next == null) throw new ArgumentNullException(nameof(next));
             if (next == this) throw new ArgumentException("A station can't feed itself.", nameof(next));
+            ConnectTo(Router.For(next), walkTime);
+        }
+
+        /// <summary>Feed a stage; each passenger walks to the lane its router picks (N4).</summary>
+        public void ConnectTo(Router next, double walkTime = 0.0)
+        {
+            if (next == null) throw new ArgumentNullException(nameof(next));
+            if (next == Stage) throw new ArgumentException("A station can't feed its own stage.", nameof(next));
             if (!(walkTime >= 0) || double.IsInfinity(walkTime))
                 throw new ArgumentOutOfRangeException(nameof(walkTime), walkTime, "Walk time must be 0 or more.");
             if (Next != null) throw new InvalidOperationException($"Station '{Name}' already feeds '{Next.Name}'.");
@@ -86,7 +105,7 @@ namespace Throughput.Core.Engine.Network
             if (Next != null && !Next.HasRoom)
             {
                 runner.NotifyEndService(this, passenger);
-                Next._blockedUpstream.AddLast((this, passenger));
+                Next.Block(this, passenger);
                 runner.NotifyBlocked(this, passenger);
                 return;
             }
@@ -103,11 +122,11 @@ namespace Throughput.Core.Engine.Network
             _line.Remove(node);
             _inLine.Remove(passenger);
             runner.NotifyRenege(this, passenger);
-            ReleaseBlocked(runner);
+            Stage?.ReleaseBlocked(runner);
             return true;
         }
 
-        private void Unblock(Runner runner, Passenger passenger)
+        internal void Unblock(Runner runner, Passenger passenger)
         {
             _busy--;
             runner.NotifyUnblocked(this, passenger);
@@ -122,8 +141,9 @@ namespace Throughput.Core.Engine.Network
                 runner.NotifyExit(passenger);
                 return;
             }
-            Next._walkingHere++;
-            runner.Schedule(runner.Now + WalkTime, EventType.Reach, Next, passenger);
+            Station lane = Next.PickWithRoom(); // Finish and ReleaseBlocked only get here when there is room
+            lane._walkingHere++;
+            runner.Schedule(runner.Now + WalkTime, EventType.Reach, lane, passenger);
         }
 
         private void TryStart(Runner runner)
@@ -137,18 +157,7 @@ namespace Throughput.Core.Engine.Network
                 runner.NotifyStartService(this, next);
                 runner.Schedule(runner.Now + _service.Sample(_rng), EventType.EndService, this, next);
             }
-            ReleaseBlocked(runner);
-        }
-
-        /// <summary>Space opened in this line: blocked desks upstream move their passengers on, first blocked first.</summary>
-        private void ReleaseBlocked(Runner runner)
-        {
-            while (_blockedUpstream.Count > 0 && HasRoom)
-            {
-                (Station from, Passenger passenger) = _blockedUpstream.First.Value;
-                _blockedUpstream.RemoveFirst();
-                from.Unblock(runner, passenger);
-            }
+            Stage?.ReleaseBlocked(runner);
         }
     }
 }
