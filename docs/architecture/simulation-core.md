@@ -69,7 +69,8 @@ Each policy is a small class behind an interface, chosen by the plan.
 
 ### 3. Observers: things that only watch
 
-- The **timeline recorder** and **statistics** (busy %, waits per group, happiness, throughput).
+- The **timeline recorder** (`RunLog`) and **statistics** (`RunStats`: missed flights, waits, busy share, throughput, staff-minutes; waits per group and happiness come later).
+- `Scoring.Score(level, summary)` turns a summary into the result: pass on the level's one goal, plus optional extra ticks (D9).
 - Observers listen to events and **can't change** the simulation.
 
 ## Randomness (P3: fair, not lucky)

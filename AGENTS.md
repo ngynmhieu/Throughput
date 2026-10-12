@@ -10,7 +10,7 @@ Instructions for AI agents working on **Throughput**. Read this first, then the 
 - Main learning subjects: **queueing theory** and **game design**. Unity, art and code polish may take shortcuts.
 - No deadline. Learning comes first; shipping (itch.io) is a bonus.
 
-**Current phase:** design is done for the most part; there's **no game code yet**. Now: sub-project 1 (simulation core + validation). Its spec **and progress tracker** is [docs/superpowers/specs/2026-10-11-phase-1-core-design.md](docs/superpowers/specs/2026-10-11-phase-1-core-design.md): check its Progress table first, and tick boxes as work is done. See [docs/roadmap.md](docs/roadmap.md).
+**Current phase:** sub-project 1 (simulation core + validation, `Throughput.Core`) is **done** (2026-10-12); its spec and tracker is [docs/superpowers/specs/2026-10-11-phase-1-core-design.md](docs/superpowers/specs/2026-10-11-phase-1-core-design.md). Next: sub-project 2 (greybox playable), which needs its own spec first. See [docs/roadmap.md](docs/roadmap.md).
 
 ## Where things are
 

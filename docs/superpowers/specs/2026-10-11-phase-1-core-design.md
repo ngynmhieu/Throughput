@@ -169,20 +169,20 @@ Each slice is **test-first**: write the test from a hand calculation or a formul
 - [x] Hand tests for each; invariants on all; stress test with rule + breakdowns + random actions
 
 ### S9: Results + fairness
-- [ ] `RunStats` observer: waits per group, busy %, throughput, reneges (missed flights)
-- [ ] `Results`: pass goal + optional extras (D9)
-- [ ] **Fairness test (P3):** one sample level, 200 seeds → a good plan passes on ≥ 95%, a bad plan fails on most
-- [ ] Optional: CSV export + throwaway chart (5.5)
+- [x] `RunStats` observer: waits, busy %, throughput, reneges (missed flights), staff-minutes (G2–G5); waits per group deferred until passenger groups exist (G8)
+- [x] `Results`: pass goal + optional extras (D9): `Scoring.Score`, extras "longest wait" and "staff-minutes" (G1, G6)
+- [x] **Fairness test (P3):** one sample level, 200 seeds → the sample plan passes 199/200, a short-staffed plan fails 182/200 (G7)
+- Optional CSV export + throwaway chart (5.5): deferred (G8)
 
 ## 7. Done when (phase 1 exit)
 
-- [ ] All slices S0–S9 closed
-- [ ] Strict tier passes: M/M/1, Erlang C, Erlang A, P-K within 3% (CI contains theory); Kingman within 15% at ρ ≥ 0.8
-- [ ] Little's Law and all invariants pass on every test, including the sample level
-- [ ] Determinism tests pass
-- [ ] Fairness test passes on the sample level
-- [ ] `Throughput.Core` still has no Unity references (`SetupCheckTests` green, not inconclusive)
-- [ ] Roadmap updated: phase 1 done
+- [x] All slices S0–S9 closed
+- [x] Strict tier passes: M/M/1, Erlang C, Erlang A, P-K within 3% (CI contains theory); Kingman within 15% at ρ ≥ 0.8 (19/19, 2026-10-12)
+- [x] Little's Law and all invariants pass on every test, including the sample level (normal tier 204/204)
+- [x] Determinism tests pass
+- [x] Fairness test passes on the sample level (199/200 and 18/200)
+- [x] `Throughput.Core` still has no Unity references (`SetupCheckTests` passed, 0 inconclusive)
+- [x] Roadmap updated: phase 1 done
 
 ## 8. Open questions (to settle before or during the plan)
 
@@ -225,7 +225,7 @@ Each slice is **test-first**: write the test from a hand calculation or a formul
 | S7 | Level/plan JSON, layout compiler | Done (2026-10-11) |
 | S8a | Lanes, routing, manager action | Done (2026-10-12) |
 | S8b | Staffing rule, breakdown | Done (2026-10-12) |
-| S9 | Results, fairness | Not started |
+| S9 | Results, fairness | Done (2026-10-12) |
 
 **S4 decisions (2026-10-11, plan part 3):**
 - R1: same-time order is `EndService` → `Renege` → `Arrive`, so patience that ends as a desk frees still gets served.
@@ -285,6 +285,16 @@ Each slice is **test-first**: write the test from a hand calculation or a formul
 - K9: the log records every lane change with `ByManager`; a replay re-applies only the manager's entries.
 - K10: deferred: "send a broken lane's line to other lanes" action; overlapping breakdowns of one lane.
 
+**S9 decisions (2026-10-12, plan part 9):**
+- G1: extras in S9: "nobody waits over X min" and "spend at most Y staff-minutes" (user's choice A).
+- G2: a missed flight = a passenger who gave up.
+- G3: cost = staff-minutes: desks × minutes staffed (open, in setup, or draining); a shared line is staffed all run; the run ends at `LastActiveTime`.
+- G4: a passenger's wait = total time in lines over all stages; average over everyone who arrived; longest = the worst passenger.
+- G5: busy share = busy minutes (serving or holding a blocked passenger) ÷ staffed minutes.
+- G6: pass = missed flights ≤ `maxMissedFlights`; extras are ticks beside it, no stars.
+- G7: fairness test on the sample level, seeds 1–200: sample plan passes ≥ 190 (199), 2 ID desks fails ≥ 160 (182).
+- G8: deferred: waits per passenger group, CSV export and charts.
+
 ## Change log
 
 | Date | Change |
@@ -299,3 +309,4 @@ Each slice is **test-first**: write the test from a hand calculation or a formul
 | 2026-10-11 | S7 done: level/plan JSON (Q1: Newtonsoft), arrival waves, min/max desk times, layout compiler; plan is numbers (grid in sub-project 2) |
 | 2026-10-12 | S8 split into S8a/S8b; S8a done: lanes as stations, Router with shortest line, open/close lane live (closed lanes drain), lanes in the plan |
 | 2026-10-12 | S8b done: staffing rule with setup time, manager pins and return-to-rule, breakdowns from the event deck (pause and resume) |
+| 2026-10-12 | S9 done: RunStats, scoring with extras, fairness test (199/200 vs 18/200); phase 1 exit checks all ticked |
