@@ -56,6 +56,14 @@ namespace Throughput.Core.Engine.Network
         /// <summary>Broken (K6): starts no checks and pauses the ones in progress until repaired.</summary>
         public bool IsBroken { get; private set; }
 
+        /// <summary>The manager pinned this lane (K2): the staffing rule leaves it alone until it's returned.</summary>
+        public bool IsManual { get; internal set; }
+
+        /// <summary>The rule is opening this lane; it opens at ReadyAt (K4).</summary>
+        public bool IsOpening => !double.IsNaN(ReadyAt);
+
+        internal double ReadyAt { get; set; } = double.NaN;
+
         public double WalkTime { get; private set; }
 
         /// <summary>Staff serving someone, or holding a finished passenger who can't move on yet (blocked).</summary>

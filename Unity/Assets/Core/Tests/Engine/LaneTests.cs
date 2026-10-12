@@ -203,9 +203,9 @@ namespace Throughput.Core.Tests.Engine
             runner.CloseLane(s2); // already closed: nothing happens
             var e = Assert.Throws<System.InvalidOperationException>(() => runner.CloseLane(s1));
             StringAssert.Contains("last open lane", e.Message);
-            runner.OpenLane(s1);  // already open: nothing happens
+            runner.OpenLane(s1);  // already open: now pinned by the manager (K2), which is logged
             Assert.Throws<System.ArgumentNullException>(() => runner.CloseLane(null));
-            Assert.That(log.Entries.Count(x => x.PassengerId == -1), Is.EqualTo(1));
+            Assert.That(log.Entries.Count(x => x.PassengerId == -1), Is.EqualTo(2));
             Assert.That(s1.IsOpen, Is.True);
         }
     }

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Throughput.Core.Engine.Behaviours;
 using Throughput.Core.Engine.Network;
+using Throughput.Core.Engine.Policies;
 using Throughput.Core.Engine.Randomness;
 
 namespace Throughput.Core.Engine.Events
@@ -16,6 +17,7 @@ namespace Throughput.Core.Engine.Events
         private readonly List<IRunObserver> _observers = new List<IRunObserver>();
         private readonly List<IBehaviour> _behaviours = new List<IBehaviour>();
         private readonly List<Breakdown> _breakdowns = new List<Breakdown>();
+        private readonly List<StaffingRule> _rules = new List<StaffingRule>();
         private readonly Source[] _sources;
         private int _nextPassengerId;
         private bool _started;
@@ -62,31 +64,64 @@ namespace Throughput.Core.Engine.Events
             _breakdowns.Add(new Breakdown(stage, time, repair, rng));
         }
 
+        public void AddRule(StaffingRule rule)
+        {
+            _rules.Add(rule ?? throw new ArgumentNullException(nameof(rule)));
+        }
+
         /// <summary>
-        /// Manager action (N6, N7): the lane takes new people from now on and blocked desks upstream move on.
-        /// Call it after Run(t), so it sees every event at or before t. Opening an open lane does nothing.
+        /// Manager action (N6, N7, K2): open the lane now and pin it, so the staffing rule leaves it alone. Opening a
+        /// lane the rule had opened just pins it. Call it after Run(t), so it sees every event at or before t.
         /// </summary>
         public void OpenLane(Station lane)
         {
             if (lane == null) throw new ArgumentNullException(nameof(lane));
-            if (lane.IsOpen) return;
-            lane.SetOpen(true);
-            Notify(lane, LaneChange.Opened, byManager: true);
-            lane.Stage?.ReleaseBlocked(this);
+            if (lane.IsOpen && lane.IsManual) return;
+            lane.IsManual = true;
+            if (lane.IsOpen) Notify(lane, LaneChange.Opened, byManager: true);
+            else OpenNow(lane, byManager: true);
+            CheckRules();
         }
 
         /// <summary>
-        /// Manager action (N5, N7): the lane gets nobody new but serves everyone already in its line, at its
-        /// desk, or walking to it (it drains). The last open lane of a stage can't be closed.
+        /// Manager action (N5, N7, K2): the lane gets nobody new but serves everyone already in its line, at its desk,
+        /// or walking to it (it drains). It is pinned closed, and a setup in progress is cancelled. The last open
+        /// lane of a stage can't be closed.
         /// </summary>
         public void CloseLane(Station lane)
         {
             if (lane == null) throw new ArgumentNullException(nameof(lane));
-            if (!lane.IsOpen) return;
-            if (lane.Stage != null && lane.Stage.OpenLanes == 1)
+            if (!lane.IsOpen && lane.IsManual) return;
+            if (lane.IsOpen && lane.Stage != null && lane.Stage.OpenLanes == 1)
                 throw new InvalidOperationException($"'{lane.Name}' is the last open lane of '{lane.Stage.Name}'.");
+            lane.IsManual = true;
+            lane.ReadyAt = double.NaN; // a setup in progress is cancelled; its LaneReady event will be ignored
             lane.SetOpen(false);
             Notify(lane, LaneChange.Closed, byManager: true);
+            CheckRules();
+        }
+
+        /// <summary>Manager action (K2): hand a pinned lane back to the staffing rule, which checks at once.</summary>
+        public void ReturnToRule(Station lane)
+        {
+            if (lane == null) throw new ArgumentNullException(nameof(lane));
+            if (!lane.IsManual) return;
+            lane.IsManual = false;
+            Notify(lane, LaneChange.ReturnedToRule, byManager: true);
+            CheckRules();
+        }
+
+        internal void StartOpening(Station lane, double setupTime)
+        {
+            lane.ReadyAt = Now + setupTime;
+            Notify(lane, LaneChange.Opening, byManager: false);
+            Schedule(lane.ReadyAt, EventType.LaneReady, lane, null);
+        }
+
+        internal void CloseByRule(Station lane)
+        {
+            lane.SetOpen(false);
+            Notify(lane, LaneChange.Closed, byManager: false);
         }
 
         /// <summary>
@@ -113,7 +148,10 @@ namespace Throughput.Core.Engine.Events
                 EngineEvent e = _events.Pop();
                 Now = e.Time;
                 if (Handle(e))
+                {
                     LastActiveTime = Now;
+                    CheckRules();
+                }
             }
 
             if (!double.IsPositiveInfinity(until))
@@ -163,6 +201,19 @@ namespace Throughput.Core.Engine.Events
             foreach (IRunObserver o in _observers) o.OnExit(Now, p);
         }
 
+        private void OpenNow(Station lane, bool byManager)
+        {
+            lane.ReadyAt = double.NaN;
+            lane.SetOpen(true);
+            Notify(lane, LaneChange.Opened, byManager);
+            lane.Stage?.ReleaseBlocked(this);
+        }
+
+        private void CheckRules()
+        {
+            foreach (StaffingRule rule in _rules) rule.Check(this);
+        }
+
         private void Notify(Station lane, LaneChange change, bool byManager)
         {
             foreach (IRunObserver o in _observers) o.OnLaneChanged(Now, lane, change, byManager);
@@ -188,6 +239,11 @@ namespace Throughput.Core.Engine.Events
                     return true;
                 case EventType.Renege:
                     return ((Station)e.Node).Renege(this, e.Passenger);
+                case EventType.LaneReady:
+                    var ready = (Station)e.Node;
+                    if (ready.ReadyAt != Now) return false; // the manager cancelled this setup
+                    OpenNow(ready, byManager: false);
+                    return true;
                 case EventType.Breakdown:
                     var breakdown = (Breakdown)e.Node;
                     Station broken = breakdown.PickLane();
