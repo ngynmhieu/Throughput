@@ -15,6 +15,8 @@ namespace Throughput.Core.Engine.Network
     {
         private readonly LinkedList<Passenger> _line = new LinkedList<Passenger>();
         private readonly Dictionary<Passenger, LinkedListNode<Passenger>> _inLine = new Dictionary<Passenger, LinkedListNode<Passenger>>();
+        private readonly List<(Passenger Passenger, double EndsAt)> _serving = new List<(Passenger, double)>();
+        private readonly List<(Passenger Passenger, double Left)> _paused = new List<(Passenger, double)>();
         private readonly IDistribution _service;
         private readonly Pcg32 _rng;
         private int _busy;
@@ -50,6 +52,9 @@ namespace Throughput.Core.Engine.Network
 
         /// <summary>A closed lane gets nobody new but still serves its line (N5).</summary>
         public bool IsOpen { get; private set; } = true;
+
+        /// <summary>Broken (K6): starts no checks and pauses the ones in progress until repaired.</summary>
+        public bool IsBroken { get; private set; }
 
         public double WalkTime { get; private set; }
 
@@ -100,18 +105,42 @@ namespace Throughput.Core.Engine.Network
             Accept(runner, passenger);
         }
 
-        internal void Finish(Runner runner, Passenger passenger)
+        /// <summary>An EndService event fired. Returns false (and does nothing) if a breakdown moved this end time.</summary>
+        internal bool Finish(Runner runner, Passenger passenger, double time)
         {
+            int i = _serving.FindIndex(s => s.Passenger == passenger && s.EndsAt == time);
+            if (i < 0) return false;
+            _serving.RemoveAt(i);
             if (Next != null && !Next.HasRoom)
             {
                 runner.NotifyEndService(this, passenger);
                 Next.Block(this, passenger);
                 runner.NotifyBlocked(this, passenger);
-                return;
+                return true;
             }
             _busy--;
             runner.NotifyEndService(this, passenger);
             MoveOn(runner, passenger);
+            TryStart(runner);
+            return true;
+        }
+
+        /// <summary>The desk breaks (K6): checks in progress freeze with the time they have left.</summary>
+        internal void Break(Runner runner)
+        {
+            IsBroken = true;
+            foreach ((Passenger passenger, double endsAt) in _serving)
+                _paused.Add((passenger, endsAt - runner.Now));
+            _serving.Clear(); // their EndService events are now stale and will be ignored
+        }
+
+        /// <summary>The desk is fixed: paused checks continue with the time left, then the line moves again.</summary>
+        internal void Repair(Runner runner)
+        {
+            IsBroken = false;
+            foreach ((Passenger passenger, double left) in _paused)
+                StartTimer(runner, passenger, runner.Now + left);
+            _paused.Clear();
             TryStart(runner);
         }
 
@@ -148,16 +177,22 @@ namespace Throughput.Core.Engine.Network
 
         private void TryStart(Runner runner)
         {
-            while (_busy < Staff && _line.Count > 0)
+            while (!IsBroken && _busy < Staff && _line.Count > 0)
             {
                 Passenger next = _line.First.Value;
                 _line.RemoveFirst();
                 _inLine.Remove(next);
                 _busy++;
                 runner.NotifyStartService(this, next);
-                runner.Schedule(runner.Now + _service.Sample(_rng), EventType.EndService, this, next);
+                StartTimer(runner, next, runner.Now + _service.Sample(_rng));
             }
             Stage?.ReleaseBlocked(runner);
+        }
+
+        private void StartTimer(Runner runner, Passenger passenger, double endsAt)
+        {
+            _serving.Add((passenger, endsAt));
+            runner.Schedule(endsAt, EventType.EndService, this, passenger);
         }
     }
 }

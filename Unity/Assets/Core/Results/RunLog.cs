@@ -18,12 +18,16 @@ namespace Throughput.Core.Results
         Exit,
         LaneOpened,
         LaneClosed,
+        LaneOpening,
+        LaneBroken,
+        LaneRepaired,
+        LaneReturnedToRule,
     }
 
     /// <summary>One step of the run, with the engine's own queue length and busy count right after it.</summary>
     public readonly struct LogEntry
     {
-        public LogEntry(double time, LogKind kind, int passengerId, string station, int queueLength, int busy)
+        public LogEntry(double time, LogKind kind, int passengerId, string station, int queueLength, int busy, bool byManager = false)
         {
             Time = time;
             Kind = kind;
@@ -31,13 +35,13 @@ namespace Throughput.Core.Results
             Station = station;
             QueueLength = queueLength;
             Busy = busy;
+            ByManager = byManager;
         }
-
         public double Time { get; }
 
         public LogKind Kind { get; }
 
-        /// <summary>-1 for lane actions (LaneOpened, LaneClosed).</summary>
+        /// <summary>-1 for lane entries (LaneOpened, LaneClosed, LaneBroken, ...).</summary>
         public int PassengerId { get; }
 
         /// <summary>Null for Arrive and Exit.</summary>
@@ -47,9 +51,12 @@ namespace Throughput.Core.Results
 
         public int Busy { get; }
 
+        /// <summary>A lane entry caused by the player (K9).</summary>
+        public bool ByManager { get; }
+
         public override string ToString() =>
-            string.Format(CultureInfo.InvariantCulture, "{0:R} {1} p{2} {3} q={4} b={5}",
-                Time, Kind, PassengerId, Station ?? "-", QueueLength, Busy);
+            string.Format(CultureInfo.InvariantCulture, "{0:R} {1} p{2} {3} q={4} b={5}{6}",
+                Time, Kind, PassengerId, Station ?? "-", QueueLength, Busy, ByManager ? " manager" : "");
     }
 
     /// <summary>One stop at one station. Times are NaN until that step happens.</summary>
@@ -215,11 +222,24 @@ namespace Throughput.Core.Results
             Add(time, LogKind.Exit, passenger, null);
         }
 
-        public void OnLaneSwitched(double time, Station lane, bool open)
+        public void OnLaneChanged(double time, Station lane, LaneChange change, bool byManager)
         {
             if (!_keepEntries) return;
-            _entries.Add(new LogEntry(time, open ? LogKind.LaneOpened : LogKind.LaneClosed, -1, lane.Name,
-                lane.QueueLength, lane.Busy));
+            _entries.Add(new LogEntry(time, KindOf(change), -1, lane.Name, lane.QueueLength, lane.Busy, byManager));
+        }
+
+        private static LogKind KindOf(LaneChange change)
+        {
+            switch (change)
+            {
+                case LaneChange.Opened: return LogKind.LaneOpened;
+                case LaneChange.Closed: return LogKind.LaneClosed;
+                case LaneChange.Opening: return LogKind.LaneOpening;
+                case LaneChange.Broken: return LogKind.LaneBroken;
+                case LaneChange.Repaired: return LogKind.LaneRepaired;
+                case LaneChange.ReturnedToRule: return LogKind.LaneReturnedToRule;
+                default: throw new ArgumentOutOfRangeException(nameof(change), change, null);
+            }
         }
 
         private void Add(double time, LogKind kind, Passenger passenger, Station station)

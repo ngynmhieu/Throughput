@@ -52,13 +52,13 @@ namespace Throughput.Core.Engine.Network
             }
         }
 
-        /// <summary>Some open lane can take one more walker.</summary>
+        /// <summary>Some open, working lane can take one more walker.</summary>
         internal bool HasRoom
         {
             get
             {
                 foreach (Station lane in _lanes)
-                    if (lane.IsOpen && lane.HasRoom) return true;
+                    if (Works(lane) && lane.HasRoom) return true;
                 return false;
             }
         }
@@ -67,11 +67,14 @@ namespace Throughput.Core.Engine.Network
         internal static Router For(Station station) =>
             station.Stage ?? new Router(station.Name, new[] { station }, ShortestLine.Instance);
 
-        /// <summary>For a walker from a desk upstream: an open lane with room (they reserve a place there), or null.</summary>
-        internal Station PickWithRoom() => Pick(needRoom: true);
+        /// <summary>For a walker from a desk upstream: an open working lane with room (they reserve a place there), or null.</summary>
+        internal Station PickWithRoom() => Pick(lane => Works(lane) && lane.HasRoom);
 
-        /// <summary>For someone from the entrance: any open lane (lines in the hall have no limit, B4), or null.</summary>
-        internal Station PickAny() => Pick(needRoom: false);
+        /// <summary>
+        /// For someone from the entrance: any open working lane (lines in the hall have no limit, B4). If every open
+        /// lane is broken they still need somewhere to stand, so they join an open broken lane (K6). Null if none is open.
+        /// </summary>
+        internal Station PickAny() => Pick(Works) ?? Pick(lane => lane.IsOpen);
 
         internal void Block(Station from, Passenger passenger) => _blocked.AddLast((from, passenger));
 
@@ -86,11 +89,13 @@ namespace Throughput.Core.Engine.Network
             }
         }
 
-        private Station Pick(bool needRoom)
+        private static bool Works(Station lane) => lane.IsOpen && !lane.IsBroken;
+
+        private Station Pick(Func<Station, bool> allowed)
         {
             _choices.Clear();
             foreach (Station lane in _lanes)
-                if (lane.IsOpen && (!needRoom || lane.HasRoom))
+                if (allowed(lane))
                     _choices.Add(lane);
             if (_choices.Count == 0) return null;
             int i = _policy.Choose(_choices);

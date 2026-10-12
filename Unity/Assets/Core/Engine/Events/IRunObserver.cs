@@ -25,8 +25,11 @@ namespace Throughput.Core.Engine.Events
         /// </summary>
         void OnRenege(double time, Station station, Passenger passenger);
 
-        /// <summary>The manager opened or closed a lane (N7). A closed lane still serves its line.</summary>
-        void OnLaneSwitched(double time, Station lane, bool open);
+        /// <summary>
+        /// A lane changed (K9). byManager: the player did it (a replay re-applies these); otherwise the staffing
+        /// rule or the event deck did.
+        /// </summary>
+        void OnLaneChanged(double time, Station lane, LaneChange change, bool byManager);
 
         void OnExit(double time, Passenger passenger);
     }

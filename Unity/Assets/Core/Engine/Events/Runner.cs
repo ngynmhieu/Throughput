@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Throughput.Core.Engine.Behaviours;
 using Throughput.Core.Engine.Network;
+using Throughput.Core.Engine.Randomness;
 
 namespace Throughput.Core.Engine.Events
 {
@@ -14,6 +15,7 @@ namespace Throughput.Core.Engine.Events
         private readonly EventList _events = new EventList();
         private readonly List<IRunObserver> _observers = new List<IRunObserver>();
         private readonly List<IBehaviour> _behaviours = new List<IBehaviour>();
+        private readonly List<Breakdown> _breakdowns = new List<Breakdown>();
         private readonly Source[] _sources;
         private int _nextPassengerId;
         private bool _started;
@@ -46,6 +48,21 @@ namespace Throughput.Core.Engine.Events
         }
 
         /// <summary>
+        /// Event deck (K7): at <paramref name="time"/> one open working lane of the stage breaks, picked with
+        /// <paramref name="rng"/>, and is repaired after a time drawn from <paramref name="repair"/>. Add before the run starts.
+        /// </summary>
+        public void AddBreakdown(Router stage, double time, IDistribution repair, Pcg32 rng)
+        {
+            if (stage == null) throw new ArgumentNullException(nameof(stage));
+            if (repair == null) throw new ArgumentNullException(nameof(repair));
+            if (rng == null) throw new ArgumentNullException(nameof(rng));
+            if (!(time >= 0) || double.IsInfinity(time))
+                throw new ArgumentOutOfRangeException(nameof(time), time, "A breakdown needs a time of 0 or more.");
+            if (_started) throw new InvalidOperationException("Add breakdowns before the run starts.");
+            _breakdowns.Add(new Breakdown(stage, time, repair, rng));
+        }
+
+        /// <summary>
         /// Manager action (N6, N7): the lane takes new people from now on and blocked desks upstream move on.
         /// Call it after Run(t), so it sees every event at or before t. Opening an open lane does nothing.
         /// </summary>
@@ -54,7 +71,7 @@ namespace Throughput.Core.Engine.Events
             if (lane == null) throw new ArgumentNullException(nameof(lane));
             if (lane.IsOpen) return;
             lane.SetOpen(true);
-            foreach (IRunObserver o in _observers) o.OnLaneSwitched(Now, lane, true);
+            Notify(lane, LaneChange.Opened, byManager: true);
             lane.Stage?.ReleaseBlocked(this);
         }
 
@@ -69,7 +86,7 @@ namespace Throughput.Core.Engine.Events
             if (lane.Stage != null && lane.Stage.OpenLanes == 1)
                 throw new InvalidOperationException($"'{lane.Name}' is the last open lane of '{lane.Stage.Name}'.");
             lane.SetOpen(false);
-            foreach (IRunObserver o in _observers) o.OnLaneSwitched(Now, lane, false);
+            Notify(lane, LaneChange.Closed, byManager: true);
         }
 
         /// <summary>
@@ -87,6 +104,8 @@ namespace Throughput.Core.Engine.Events
                 _started = true;
                 foreach (Source source in _sources)
                     ScheduleNextArrival(source);
+                foreach (Breakdown breakdown in _breakdowns)
+                    Schedule(breakdown.Time, EventType.Breakdown, breakdown, null);
             }
 
             while (_events.Count > 0 && _events.Peek().Time <= until)
@@ -144,6 +163,11 @@ namespace Throughput.Core.Engine.Events
             foreach (IRunObserver o in _observers) o.OnExit(Now, p);
         }
 
+        private void Notify(Station lane, LaneChange change, bool byManager)
+        {
+            foreach (IRunObserver o in _observers) o.OnLaneChanged(Now, lane, change, byManager);
+        }
+
         private bool Handle(EngineEvent e)
         {
             switch (e.Type)
@@ -158,13 +182,25 @@ namespace Throughput.Core.Engine.Events
                     lane.Accept(this, passenger);
                     return true;
                 case EventType.EndService:
-                    ((Station)e.Node).Finish(this, e.Passenger);
-                    return true;
+                    return ((Station)e.Node).Finish(this, e.Passenger, e.Time);
                 case EventType.Reach:
                     ((Station)e.Node).Reach(this, e.Passenger);
                     return true;
                 case EventType.Renege:
                     return ((Station)e.Node).Renege(this, e.Passenger);
+                case EventType.Breakdown:
+                    var breakdown = (Breakdown)e.Node;
+                    Station broken = breakdown.PickLane();
+                    if (broken == null) return false;
+                    Notify(broken, LaneChange.Broken, byManager: false);
+                    broken.Break(this);
+                    Schedule(Now + breakdown.Repair.Sample(breakdown.Rng), EventType.Repair, broken, null);
+                    return true;
+                case EventType.Repair:
+                    var repaired = (Station)e.Node;
+                    Notify(repaired, LaneChange.Repaired, byManager: false);
+                    repaired.Repair(this);
+                    return true;
                 default:
                     throw new InvalidOperationException($"Unhandled event type {e.Type}.");
             }

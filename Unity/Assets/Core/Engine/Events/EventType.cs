@@ -11,5 +11,8 @@ namespace Throughput.Core.Engine.Events
         Renege = 1,
         Reach = 2,
         Arrive = 3,
+        LaneReady = 4,
+        Breakdown = 5,
+        Repair = 6,
     }
 }
