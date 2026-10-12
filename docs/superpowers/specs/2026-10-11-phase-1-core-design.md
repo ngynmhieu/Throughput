@@ -154,13 +154,17 @@ Each slice is **test-first**: write the test from a hand calculation or a formul
 - [x] Realistic time ranges for game levels: `Shifted(min, inner)` (a check always takes at least *min*, plus a random part) and `Bounded(min, max, inner)` (re-roll outside the range) as `IDistribution` wrappers, set per desk in level data. **Formula tests keep pure distributions** (no min/max), or the comparison with theory breaks. Test: samples never leave the range; `Shifted` mean = min + inner mean.
 - [x] Tests: sample level JSON → expected network; invalid plan → helpful error
 
-### S8: Starter policies, rules, events, actions
-- [ ] `Router` + routing policies (moved from S5)
-- [ ] Routing: shortest line (`IRoutingPolicy`)
+### S8a: Lanes, routing, manager action
+- [x] `Router` + routing policies (moved from S5): a lane is a `Station`, every stage has a `Router` (N1, N2)
+- [x] Routing: shortest line (`IRoutingPolicy`, `ShortestLine`) (N3, N4)
+- [x] Manager action: open/close lane at time t, applied to the live engine at t; closed lanes drain (N5–N7)
+- [x] A manager action changes only what it affects (separate random streams) (moved from 5.4)
+- [x] Lanes in the plan and the compiler (N8)
+- [x] Hand tests for each; invariants on all (new: closed lanes get no new people)
+
+### S8b: Staffing rule and breakdown
 - [ ] Staffing rule: open when queue > X, close when < Y, with setup time (`IStaffingRule`, `CheckRule` event)
 - [ ] Event deck: scanner breakdown at a random time from the event-timing stream (`Breakdown` / `Repaired`)
-- [ ] Manager action: open/close lane at time t, applied to the live engine at t
-- [ ] A manager action changes only what it affects (separate random streams) (moved from 5.4)
 - [ ] Hand tests for each; invariants on all
 
 ### S9: Results + fairness
@@ -196,11 +200,11 @@ Each slice is **test-first**: write the test from a hand calculation or a formul
 - **From the S5 review (2026-10-11), deferred:**
   - **S7 (layout compiler): Done by design (L2):** a plan is a chain of stages with each desk type once, so no loops, unique names and no mixed feeding. Revisit when S8 adds lanes and routing. Original note: reject loops of stations (A → B → A): with full lines they can block each other forever. Require unique station names (the run log matches visits by name). Decide what happens when a line is fed by both a Source and a station: walk-ins never wait, so desks feeding it can stay blocked (B4).
   - **S9 (results):** `Station.Busy` counts blocked desks too. Utilisation must use a separate serving vs blocked count, not `Busy / Staff`.
-- **S8 (actions), from the S6 review:** an action at time t is applied **after** `Run(t)`, so it sees the state after every event at or before t; a replay must do exactly the same (`Run(t)`, then apply, then continue). Record each action's exact time (the engine's `Now` when applied), never a sum of frame times. Add a test where an action lands exactly on an event's time. The game shows `LastActiveTime` as a run's end, never `Now`.
+- **S8 (actions), from the S6 review: Done (N7, `Action_AtAnEventTime_SeesThatEvent`).** an action at time t is applied **after** `Run(t)`, so it sees the state after every event at or before t; a replay must do exactly the same (`Run(t)`, then apply, then continue). Record each action's exact time (the engine's `Now` when applied), never a sum of frame times. Add a test where an action lands exactly on an event's time. The game shows `LastActiveTime` as a run's end, never `Now`.
 - **S6: Done.** `Runner.Run(until)` now leaves `Now` exactly at `until`.
 - **S6/S9, from the S4 review: Done** (`Runner.LastActiveTime`). Ignored `Renege` alarms still move `Now`, so `Now` after a run is **not** the run's end. Timeline length, replay length and throughput must use the time of the last event that changed something (track a `LastActiveTime`). Stale alarms also stay in the event list (harmless).
 - **Any slice:** `Run()` with a renewal source and no stop time never ends; the starter levels must always set a wave end. Real levels use waves (L7), which always end.
-- **From the S7 review (2026-10-11), deferred:** `Bounded` reports the untruncated mean, slightly above the real one (keep it out of formula tests; maybe warn when `max` is close to the mean). Desk type names match case-sensitively. **S8 (lanes):** stream names `service:<type>` are unique only because each type is used once; lanes need `service:<station>` per lane.
+- **From the S7 review (2026-10-11), deferred:** `Bounded` reports the untruncated mean, slightly above the real one (keep it out of formula tests; maybe warn when `max` is close to the mean). Desk type names match case-sensitively. **S8 (lanes): Done:** each lane has `service:<lane>`.
 - **Sub-project 2 (plan editor), from S7:** the grid must produce the plan numbers (L1). Decide whether every waiting area must have a size (S7 allows unlimited ones, which don't count against space).
 
 ## Progress
@@ -215,7 +219,8 @@ Each slice is **test-first**: write the test from a hand calculation or a formul
 | S5 | Stages, buffers, blocking | Done (2026-10-11: strict tandem vs Burke, ID 4.019 / scanner 4.039 vs 4.000; blocking hand tests and busy 3-stage invariants pass) |
 | S6 | Stepping (simulate as you watch) | Done (2026-10-11) |
 | S7 | Level/plan JSON, layout compiler | Done (2026-10-11) |
-| S8 | Policies, rules, breakdown, manager action | Not started |
+| S8a | Lanes, routing, manager action | Done (2026-10-12) |
+| S8b | Staffing rule, breakdown | Not started |
 | S9 | Results, fairness | Not started |
 
 **S4 decisions (2026-10-11, plan part 3):**
@@ -252,6 +257,18 @@ Each slice is **test-first**: write the test from a hand calculation or a formul
 - L8: the compiler lists every problem at once, in plain English.
 - L9: passenger mix and event deck aren't compiled until S8/S9 use them.
 
+**S8a decisions (2026-10-12, plan part 7):**
+- N1: a stage is one shared line or separate lanes; the player picks in the plan (user's choice A).
+- N2: a lane is a `Station` (user's choice); a `Router` is the entrance of every stage; a shared line is a one-lane stage.
+- N3: shortest line = waiting + walking there + at the desk; ties go to the lowest lane number. The only policy so far.
+- N4: the lane is chosen when leaving the previous desk (user's choice A), on arrival for the first stage; walkers reserve a place.
+- N5: closing a lane drains it (user's choice A); the last open lane of a stage can't be closed.
+- N6: opening is immediate and releases blocked desks; setup time comes in S8b.
+- N7: manager action = `Runner.OpenLane` / `CloseLane`, called after `Run(t)`, logged as `LaneOpened` / `LaneClosed`.
+- N8: plan `lanes`: `staff` = lanes open at the start, `1 ≤ staff ≤ lanes ≤ maxStaff`, `lineCapacity` per lane; lanes named "<type> n".
+- N9: blocked desks wait at the stage's router, first blocked first released, to whichever lane has room.
+- N10: no line switching (jockeying) yet.
+
 ## Change log
 
 | Date | Change |
@@ -264,3 +281,4 @@ Each slice is **test-first**: write the test from a hand calculation or a formul
 | 2026-10-11 | S7: added realistic time ranges (minimum + random part, hard max safety net) for game levels |
 | 2026-10-11 | A2 revised: simulate as you watch (no snapshots, no re-sim); S6 rescoped and done |
 | 2026-10-11 | S7 done: level/plan JSON (Q1: Newtonsoft), arrival waves, min/max desk times, layout compiler; plan is numbers (grid in sub-project 2) |
+| 2026-10-12 | S8 split into S8a/S8b; S8a done: lanes as stations, Router with shortest line, open/close lane live (closed lanes drain), lanes in the plan |

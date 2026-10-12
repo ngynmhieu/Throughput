@@ -18,7 +18,7 @@ See [overview.md](overview.md) for where this sits (decisions A1–A4).
 
 Edges between nodes carry a **walk time** (from distance in the layout).
 
-Walkers reserve their spot when they leave a desk (B3). Release after blocking is first blocked, first released, and can cascade upstream (B5). `Router` arrives in S8 (B2).
+Walkers reserve their spot when they leave a desk (B3). Release after blocking is first blocked, first released, and can cascade upstream (B5). A `Router` is the entrance of every stage (S8a, N2): a shared line is a stage with one lane; separate lanes are one `Station` each. It picks a lane with an `IRoutingPolicy` (shortest line) when the passenger leaves the previous desk, or on arrival for the first stage, and holds desks blocked because every open lane is full. `Runner.OpenLane` / `CloseLane` are the first manager actions: a closed lane drains.
 
 ## The event loop
 
