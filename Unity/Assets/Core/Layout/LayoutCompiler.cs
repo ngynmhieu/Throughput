@@ -65,6 +65,7 @@ namespace Throughput.Core.Layout
             if (problems.Count > 0) throw new PlanException(problems);
 
             var streams = new RngStreams(runSeed);
+            var rules = new List<StaffingRule>();
             var stages = new List<Router>();
             for (int i = 0; i < plan.Stages.Count; i++)
             {
@@ -87,6 +88,8 @@ namespace Throughput.Core.Layout
                     }
                 }
                 var stage = new Router(type.Name, lanes, ShortestLine.Instance);
+                if (ps.Rule != null)
+                    rules.Add(new StaffingRule(stage, ps.Rule.OpenAbove, ps.Rule.CloseBelow, ps.Rule.Setup));
                 if (stages.Count > 0)
                     foreach (Station previous in stages[stages.Count - 1].Lanes)
                         previous.ConnectTo(stage, plan.Stages[i - 1].WalkToNext);
@@ -98,6 +101,17 @@ namespace Throughput.Core.Layout
             var runner = new Runner(source);
             if (level.Patience != null)
                 runner.AddBehaviour(new Reneging(level.Patience.Build(), streams));
+            foreach (StaffingRule rule in rules)
+                runner.AddRule(rule);
+            List<BreakdownDef> breakdowns = level.Breakdowns ?? new List<BreakdownDef>();
+            for (int i = 0; i < breakdowns.Count; i++)
+            {
+                BreakdownDef b = breakdowns[i];
+                Router target = stages.FirstOrDefault(s => s.Name == b.Stage);
+                if (target == null) continue; // the plan has no such desk: nothing to break (K7)
+                Pcg32 rng = streams.Get("breakdown:" + i);
+                runner.AddBreakdown(target, b.From + rng.NextDouble() * (b.To - b.From), b.Repair.Build(), rng);
+            }
             return new CompiledRun(runner, stages);
         }
 
@@ -143,6 +157,18 @@ namespace Throughput.Core.Layout
             }
             if (level.Patience != null)
                 CheckDistribution(level.Patience, "Patience", problems);
+            List<BreakdownDef> breakdowns = level.Breakdowns ?? new List<BreakdownDef>();
+            for (int i = 0; i < breakdowns.Count; i++)
+            {
+                BreakdownDef b = breakdowns[i];
+                string what = $"Breakdown {i + 1}";
+                if (b == null) { problems.Add($"{what} is empty."); continue; }
+                if (string.IsNullOrEmpty(b.Stage) || !(level.Stages ?? new List<StageTypeDef>()).Any(t => t != null && t.Name == b.Stage))
+                    problems.Add($"{what}: this level has no desk type '{b.Stage}'.");
+                if (!(b.From >= 0) || !(b.To >= b.From) || double.IsInfinity(b.To))
+                    problems.Add($"{what} must happen between two times, 0 or later, in order ({b.From}–{b.To}).");
+                CheckDistribution(b.Repair, $"{what} repair time", problems);
+            }
             if (level.Space < 0)
                 problems.Add($"The level's space can't be negative ({level.Space}).");
         }
@@ -217,6 +243,15 @@ namespace Throughput.Core.Layout
                 }
                 if (!(ps.WalkToNext >= 0) || double.IsInfinity(ps.WalkToNext))
                     problems.Add($"Stage {i + 1} {name}: walk time must be 0 or more ({ps.WalkToNext}).");
+                if (ps.Rule != null)
+                {
+                    if (ps.Lanes == null)
+                        problems.Add($"Stage {i + 1} {name}: a staffing rule needs lanes (it opens and closes them).");
+                    if (!(ps.Rule.CloseBelow >= 0) || !(ps.Rule.OpenAbove > ps.Rule.CloseBelow) || double.IsInfinity(ps.Rule.OpenAbove))
+                        problems.Add($"Stage {i + 1} {name}: the rule must open above a bigger number than it closes below, both 0 or more ({ps.Rule.OpenAbove} / {ps.Rule.CloseBelow}).");
+                    if (!(ps.Rule.Setup >= 0) || double.IsInfinity(ps.Rule.Setup))
+                        problems.Add($"Stage {i + 1} {name}: setup time must be 0 or more ({ps.Rule.Setup}).");
+                }
             }
             if (space > level.Space)
                 problems.Add($"Waiting areas use {space} places, but this level has space for {level.Space}.");

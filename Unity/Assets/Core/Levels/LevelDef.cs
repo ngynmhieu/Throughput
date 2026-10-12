@@ -18,6 +18,9 @@ namespace Throughput.Core.Levels
         /// <summary>How long people wait before giving up; null = nobody gives up.</summary>
         public DistributionDef Patience { get; set; }
 
+        /// <summary>The event deck (K7, D12): the same breakdowns every attempt, at random times.</summary>
+        public List<BreakdownDef> Breakdowns { get; set; } = new List<BreakdownDef>();
+
         /// <summary>Total places in waiting areas between desks (the hall before the first desk doesn't count, L6).</summary>
         public int Space { get; set; }
 
@@ -41,6 +44,18 @@ namespace Throughput.Core.Levels
         public DistributionDef Service { get; set; }
 
         public int MaxStaff { get; set; }
+    }
+
+    /// <summary>One desk of this type breaks at a random time between From and To (minutes) and is repaired after Repair.</summary>
+    public sealed class BreakdownDef
+    {
+        public string Stage { get; set; }
+
+        public double From { get; set; }
+
+        public double To { get; set; }
+
+        public DistributionDef Repair { get; set; }
     }
 
     /// <summary>
@@ -96,5 +111,18 @@ namespace Throughput.Core.Levels
 
         /// <summary>Walk time to the next stage, in minutes. Ignored for the last stage.</summary>
         public double WalkToNext { get; set; }
+
+        /// <summary>Staffing rule for a stage with lanes (K1–K5); null = lanes change only by the manager.</summary>
+        public RuleDef Rule { get; set; }
+    }
+
+    /// <summary>Open a lane above OpenAbove people waiting per open lane, close one below CloseBelow; Setup in minutes (K3, K4).</summary>
+    public sealed class RuleDef
+    {
+        public double OpenAbove { get; set; }
+
+        public double CloseBelow { get; set; }
+
+        public double Setup { get; set; }
     }
 }

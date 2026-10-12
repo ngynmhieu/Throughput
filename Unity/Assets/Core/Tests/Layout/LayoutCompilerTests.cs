@@ -209,5 +209,96 @@ namespace Throughput.Core.Tests.Layout
                 .Select(e => log.Passengers[e.PassengerId].Visits[0])
                 .Select(v => v.ServiceEnd - v.ServiceStart)
                 .ToArray();
+
+        private static LevelDef LevelWithBreakdown()
+        {
+            LevelDef level = Level;
+            level.Breakdowns.Add(new BreakdownDef { Stage = "scanner", From = 20, To = 40, Repair = new DistributionDef { Mean = 5, Cv = 0.5 } });
+            return level;
+        }
+
+        private static PlanDef LanesPlanWithRule()
+        {
+            PlanDef plan = LevelJson.ReadPlan(SampleLevels.LanesPlan);
+            plan.Stages[1].Rule = new RuleDef { OpenAbove = 3, CloseBelow = 0.5, Setup = 2 };
+            return plan;
+        }
+
+        [Test]
+        public void Json_ReadsRuleAndBreakdowns()
+        {
+            LevelDef level = LevelJson.ReadLevel(@"{ ""name"": ""x"", ""waves"": [], ""stages"": [], ""space"": 0,
+                ""breakdowns"": [ { ""stage"": ""scanner"", ""from"": 20, ""to"": 40, ""repair"": { ""mean"": 5 } } ] }");
+            PlanDef plan = LevelJson.ReadPlan(@"{ ""stages"": [ { ""type"": ""scanner"", ""staff"": 1, ""lanes"": 2,
+                ""rule"": { ""openAbove"": 3, ""closeBelow"": 1, ""setup"": 2 } } ] }");
+
+            Assert.That((level.Breakdowns[0].Stage, level.Breakdowns[0].From, level.Breakdowns[0].To, level.Breakdowns[0].Repair.Mean),
+                Is.EqualTo(("scanner", 20.0, 40.0, 5.0)));
+            Assert.That((plan.Stages[0].Rule.OpenAbove, plan.Stages[0].Rule.CloseBelow, plan.Stages[0].Rule.Setup), Is.EqualTo((3.0, 1.0, 2.0)));
+        }
+
+        [Test]
+        public void Compile_RuleAndBreakdown_RunsToTheEnd()
+        {
+            CompiledRun run = LayoutCompiler.Compile(LevelWithBreakdown(), LanesPlanWithRule(), runSeed: 7UL);
+            var log = new RunLog();
+            run.Runner.AddObserver(log);
+            run.Runner.Run();
+
+            Assert.That(run.Runner.IsFinished, Is.True);
+            LogEntry broken = log.Entries.Single(e => e.Kind == LogKind.LaneBroken);
+            Assert.That(broken.Time, Is.InRange(20.0, 40.0));
+            Assert.That(broken.Station, Does.StartWith("scanner "));
+            Assert.That(log.Entries.Single(e => e.Kind == LogKind.LaneRepaired).Time, Is.GreaterThan(broken.Time));
+            Assert.That(log.Entries.Any(e => e.PassengerId == -1 && !e.ByManager && e.Kind == LogKind.LaneClosed), Is.True, "the rule acted");
+            InvariantChecker.AssertAll(log, run.StaffByStation, lineCapacity: run.LineCapacity, closedAtStart: run.ClosedAtStart);
+        }
+
+        [Test]
+        public void Breakdown_RandomTimeEachAttempt_SameForSameSeed()
+        {
+            double BrokeAt(ulong seed)
+            {
+                CompiledRun run = LayoutCompiler.Compile(LevelWithBreakdown(), LevelJson.ReadPlan(SampleLevels.LanesPlan), seed);
+                var log = new RunLog();
+                run.Runner.AddObserver(log);
+                run.Runner.Run();
+                return log.Entries.Single(e => e.Kind == LogKind.LaneBroken).Time;
+            }
+
+            Assert.That(BrokeAt(3UL), Is.EqualTo(BrokeAt(3UL)));
+            Assert.That(new ulong[] { 1, 2, 3, 4, 5 }.Select(BrokeAt).Distinct().Count(), Is.GreaterThan(1));
+        }
+
+        [Test]
+        public void Breakdown_OfAStageThePlanDoesntUse_IsSkipped()
+        {
+            LevelDef level = Level;
+            level.Stages.Add(new StageTypeDef { Name = "xray", Service = new DistributionDef { Mean = 1 }, MaxStaff = 1 });
+            level.Breakdowns.Add(new BreakdownDef { Stage = "xray", From = 5, To = 10, Repair = new DistributionDef { Mean = 5 } });
+            CompiledRun run = LayoutCompiler.Compile(level, LevelJson.ReadPlan(SampleLevels.Plan), 1UL);
+            var log = new RunLog();
+            run.Runner.AddObserver(log);
+            run.Runner.Run();
+            Assert.That(log.Entries.Any(e => e.Kind == LogKind.LaneBroken), Is.False);
+        }
+
+        [Test]
+        public void Check_RuleAndBreakdownProblems()
+        {
+            LevelDef level = Level;
+            level.Breakdowns.Add(new BreakdownDef { Stage = "xray", From = 30, To = 10, Repair = new DistributionDef { Mean = 5 } });
+            level.Breakdowns.Add(null);
+            PlanDef plan = LevelJson.ReadPlan(SampleLevels.Plan); // shared lines
+            plan.Stages[1].Rule = new RuleDef { OpenAbove = 1, CloseBelow = 2, Setup = -1 };
+
+            string all = string.Join(" | ", LayoutCompiler.Check(level, plan));
+            StringAssert.Contains("Breakdown 1: this level has no desk type 'xray'", all);
+            StringAssert.Contains("Breakdown 1 must happen between", all);
+            StringAssert.Contains("Breakdown 2 is empty", all);
+            StringAssert.Contains("a staffing rule needs lanes", all);
+            StringAssert.Contains("open above", all);
+            StringAssert.Contains("setup time must be 0 or more", all);
+        }
     }
 }
