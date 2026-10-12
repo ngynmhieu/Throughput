@@ -13,6 +13,19 @@ namespace Throughput.Core.Tests.Invariants
         private static readonly Dictionary<string, int> NoStations = new Dictionary<string, int>();
 
         [Test]
+        public void Fails_WhenSomeoneJoinsALaneClosedFromTheStart()
+        {
+            var lane = new Station("x", 1, new Deterministic(1.0), new Pcg32(1UL, 1UL));
+            var p = new Passenger(0, 5.0);
+            var log = new RunLog();
+            log.OnArrive(5.0, p);
+            log.OnJoinQueue(5.0, lane, p);
+
+            Assert.Throws<AssertionException>(() => InvariantChecker.AssertAll(log, new Dictionary<string, int> { { "x", 1 } },
+                expectDrained: false, closedAtStart: new[] { "x" }));
+        }
+
+        [Test]
         public void Fails_WhenTimeGoesBackward()
         {
             var log = new RunLog();

@@ -142,7 +142,7 @@ namespace Throughput.Core.Tests.Layout
 
             Assert.That(run.Runner.IsFinished, Is.True);
             Assert.That(log.Passengers.SelectMany(p => p.Visits).Any(v => v.Station == "scanner 3"), Is.False, "scanner 3 is closed");
-            InvariantChecker.AssertAll(log, run.StaffByStation, lineCapacity: run.LineCapacity);
+            InvariantChecker.AssertAll(log, run.StaffByStation, lineCapacity: run.LineCapacity, closedAtStart: run.ClosedAtStart);
         }
 
         [Test]
@@ -160,6 +160,20 @@ namespace Throughput.Core.Tests.Layout
             all = string.Join("\n", LayoutCompiler.Check(Level, plan));
             StringAssert.Contains("Stage 1 'id': 5 lanes (this level allows up to 4)", all);
             StringAssert.Contains("use 24 places", all);
+        }
+
+        [Test]
+        public void Check_LaneNamesMustNotClash()
+        {
+            // Lanes of "scanner" are named "scanner 1", "scanner 2": a desk type called "scanner 1" would clash.
+            LevelDef level = Level;
+            level.Stages.Add(new StageTypeDef { Name = "scanner 1", Service = new DistributionDef { Mean = 1.0 }, MaxStaff = 2 });
+            var plan = new PlanDef();
+            plan.Stages.Add(new PlannedStage { Type = "scanner", Staff = 1, Lanes = 2 });
+            plan.Stages.Add(new PlannedStage { Type = "scanner 1", Staff = 1, LineCapacity = 2 });
+
+            var e = Assert.Throws<PlanException>(() => LayoutCompiler.Compile(level, plan, 1UL));
+            StringAssert.Contains("'scanner 1'", string.Join(" | ", e.Problems));
         }
 
         [Test]

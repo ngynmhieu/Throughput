@@ -11,7 +11,7 @@ namespace Throughput.Core.Tests.Support
     public static class InvariantChecker
     {
         public static void AssertAll(RunLog log, IReadOnlyDictionary<string, int> staffByStation, bool expectDrained = true,
-            IReadOnlyDictionary<string, int> lineCapacity = null)
+            IReadOnlyDictionary<string, int> lineCapacity = null, IEnumerable<string> closedAtStart = null)
         {
             AssertTimeNeverGoesBackward(log);
             AssertJourneysInOrder(log);
@@ -20,7 +20,7 @@ namespace Throughput.Core.Tests.Support
             if (lineCapacity != null)
                 AssertLineCapacity(log, lineCapacity);
             AssertFirstComeFirstServed(log);
-            AssertClosedLanesGetNoNewPeople(log);
+            AssertClosedLanesGetNoNewPeople(log, closedAtStart);
             if (expectDrained)
                 AssertLittlesLaw(log);
         }
@@ -147,9 +147,11 @@ namespace Throughput.Core.Tests.Support
         /// N5: nobody chooses a closed lane. People who chose it before it closed (still walking) may arrive later.
         /// A passenger chooses when they leave the previous desk, or on arrival for the first stage (N4).
         /// </summary>
-        private static void AssertClosedLanesGetNoNewPeople(RunLog log)
+        private static void AssertClosedLanesGetNoNewPeople(RunLog log, IEnumerable<string> closedAtStart)
         {
             var closedAt = new Dictionary<string, double>();
+            foreach (string lane in closedAtStart ?? new string[0])
+                closedAt[lane] = double.NegativeInfinity; // closed before anyone could choose it (no log entry)
             foreach (LogEntry e in log.Entries)
             {
                 if (e.Kind == LogKind.LaneClosed) closedAt[e.Station] = e.Time;

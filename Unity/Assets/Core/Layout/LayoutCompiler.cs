@@ -32,6 +32,7 @@ namespace Throughput.Core.Layout
             Stations = stages.SelectMany(s => s.Lanes).ToList();
             StaffByStation = Stations.ToDictionary(s => s.Name, s => s.Staff);
             LineCapacity = Stations.Where(s => s.LineCapacity != int.MaxValue).ToDictionary(s => s.Name, s => s.LineCapacity);
+            ClosedAtStart = Stations.Where(s => !s.IsOpen).Select(s => s.Name).ToList();
         }
 
         public Runner Runner { get; }
@@ -46,6 +47,9 @@ namespace Throughput.Core.Layout
 
         /// <summary>Only the limited waiting areas.</summary>
         public IReadOnlyDictionary<string, int> LineCapacity { get; }
+
+        /// <summary>Lanes built closed (N8). They have no LaneClosed log entry: the run log starts after them.</summary>
+        public IReadOnlyList<string> ClosedAtStart { get; }
 
         /// <summary>A station by name, e.g. "scanner 2", for manager actions.</summary>
         public Station Lane(string name) =>
@@ -165,6 +169,7 @@ namespace Throughput.Core.Layout
             }
 
             var used = new HashSet<string>();
+            var stationNames = new HashSet<string>();
             int space = 0;
             for (int i = 0; i < plan.Stages.Count; i++)
             {
@@ -179,7 +184,14 @@ namespace Throughput.Core.Layout
                     continue;
                 }
                 if (!used.Add(ps.Type))
-                    problems.Add($"Stage {i + 1}: {name} is used twice (one stage per desk type until lanes arrive).");
+                    problems.Add($"Stage {i + 1}: {name} is used twice (one stage per desk type).");
+                // Every station needs its own name: it keys the log and the random streams. Lanes are "<type> n".
+                IEnumerable<string> built = ps.Lanes == null
+                    ? new[] { ps.Type }
+                    : Enumerable.Range(1, Math.Max(0, Math.Min(ps.Lanes.Value, 100))).Select(n => $"{ps.Type} {n}");
+                foreach (string station in built)
+                    if (!stationNames.Add(station))
+                        problems.Add($"Stage {i + 1} {name}: makes a desk named '{station}', which another stage already uses.");
                 if (ps.Lanes == null)
                 {
                     if (ps.Staff < 1 || ps.Staff > type.MaxStaff)
