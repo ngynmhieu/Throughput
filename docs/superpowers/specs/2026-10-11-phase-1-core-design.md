@@ -163,9 +163,10 @@ Each slice is **test-first**: write the test from a hand calculation or a formul
 - [x] Hand tests for each; invariants on all (new: closed lanes get no new people)
 
 ### S8b: Staffing rule and breakdown
-- [ ] Staffing rule: open when queue > X, close when < Y, with setup time (`IStaffingRule`, `CheckRule` event)
-- [ ] Event deck: scanner breakdown at a random time from the event-timing stream (`Breakdown` / `Repaired`)
-- [ ] Hand tests for each; invariants on all
+- [x] Staffing rule: open when queue > X, close when < Y, with setup time (`StaffingRule`, `LaneReady` event) (K1, K3–K5)
+- [x] Manager pins and "return to rule" (K2)
+- [x] Event deck: scanner breakdown at a random time from the event-timing stream (`Breakdown` / `Repair`) (K6–K8)
+- [x] Hand tests for each; invariants on all; stress test with rule + breakdowns + random actions
 
 ### S9: Results + fairness
 - [ ] `RunStats` observer: waits per group, busy %, throughput, reneges (missed flights)
@@ -204,6 +205,7 @@ Each slice is **test-first**: write the test from a hand calculation or a formul
 - **S6: Done.** `Runner.Run(until)` now leaves `Now` exactly at `until`.
 - **S6/S9, from the S4 review: Done** (`Runner.LastActiveTime`). Ignored `Renege` alarms still move `Now`, so `Now` after a run is **not** the run's end. Timeline length, replay length and throughput must use the time of the last event that changed something (track a `LastActiveTime`). Stale alarms also stay in the event list (harmless).
 - **Any slice:** `Run()` with a renewal source and no stop time never ends; the starter levels must always set a wave end. Real levels use waves (L7), which always end.
+- **Deferred idea (S8b, K10):** a manager action that sends a broken lane's line to the other lanes.
 - **From the S8a review (2026-10-12):** fixed: lane names that clash with a desk type name ("scanner 1") are a plan problem; lanes closed from the start are passed to the invariant check (`CompiledRun.ClosedAtStart`). Deferred: `OpenLane`/`CloseLane` trust the caller to call `Run(t)` first (the run session in sub-project 3 must); closing a bare station with no stage skips the last-lane guard (only hand-built networks); `StaffByStation` reports 1 per lane, so the UI must sum staff per stage from `Stages`; log consumers must filter on `Kind` before indexing `Passengers[e.PassengerId]` (lane entries use -1).
 - **From the S7 review (2026-10-11), deferred:** `Bounded` reports the untruncated mean, slightly above the real one (keep it out of formula tests; maybe warn when `max` is close to the mean). Desk type names match case-sensitively. **S8 (lanes): Done:** each lane has `service:<lane>`.
 - **Sub-project 2 (plan editor), from S7:** the grid must produce the plan numbers (L1). Decide whether every waiting area must have a size (S7 allows unlimited ones, which don't count against space).
@@ -221,7 +223,7 @@ Each slice is **test-first**: write the test from a hand calculation or a formul
 | S6 | Stepping (simulate as you watch) | Done (2026-10-11) |
 | S7 | Level/plan JSON, layout compiler | Done (2026-10-11) |
 | S8a | Lanes, routing, manager action | Done (2026-10-12) |
-| S8b | Staffing rule, breakdown | Not started |
+| S8b | Staffing rule, breakdown | Done (2026-10-12) |
 | S9 | Results, fairness | Not started |
 
 **S4 decisions (2026-10-11, plan part 3):**
@@ -270,6 +272,18 @@ Each slice is **test-first**: write the test from a hand calculation or a formul
 - N9: blocked desks wait at the stage's router, first blocked first released, to whichever lane has room.
 - N10: no line switching (jockeying) yet.
 
+**S8b decisions (2026-10-12, plan part 8):**
+- K1: the staffing rule runs by itself; the player sets it in the plan (user's choice A).
+- K2: the manager's hand wins per lane: any manager open/close pins the lane until `ReturnToRule` (user's choice A).
+- K3: the rule measures people waiting per open lane; opens above `openAbove`, closes below `closeBelow` (`openAbove > closeBelow ≥ 0`).
+- K4: opens the lowest-numbered free lane, one at a time, after `setup`; closes the highest-numbered unpinned lane at once (drains), never the last.
+- K5: the rule is checked after every event and every manager action (no timer).
+- K6: a breakdown pauses checks in progress and resumes them after the repair (user's choice A); the line waits (user's choice A); the router skips broken lanes (hall arrivals join one only if every open lane is broken).
+- K7: the level's event deck `breakdowns: [{stage, from, to, repair}]`; time uniform in the window per attempt, lane picked then, stream `breakdown:<i>`; a stage the plan doesn't use is skipped.
+- K8: a shared-line stage breaks as a whole (one machine).
+- K9: the log records every lane change with `ByManager`; a replay re-applies only the manager's entries.
+- K10: deferred: "send a broken lane's line to other lanes" action; overlapping breakdowns of one lane.
+
 ## Change log
 
 | Date | Change |
@@ -283,3 +297,4 @@ Each slice is **test-first**: write the test from a hand calculation or a formul
 | 2026-10-11 | A2 revised: simulate as you watch (no snapshots, no re-sim); S6 rescoped and done |
 | 2026-10-11 | S7 done: level/plan JSON (Q1: Newtonsoft), arrival waves, min/max desk times, layout compiler; plan is numbers (grid in sub-project 2) |
 | 2026-10-12 | S8 split into S8a/S8b; S8a done: lanes as stations, Router with shortest line, open/close lane live (closed lanes drain), lanes in the plan |
+| 2026-10-12 | S8b done: staffing rule with setup time, manager pins and return-to-rule, breakdowns from the event deck (pause and resume) |

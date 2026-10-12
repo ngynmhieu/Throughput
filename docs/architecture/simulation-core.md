@@ -20,6 +20,8 @@ Edges between nodes carry a **walk time** (from distance in the layout).
 
 Walkers reserve their spot when they leave a desk (B3). Release after blocking is first blocked, first released, and can cascade upstream (B5). A `Router` is the entrance of every stage (S8a, N2): a shared line is a stage with one lane; separate lanes are one `Station` each. It picks a lane with an `IRoutingPolicy` (shortest line) when the passenger leaves the previous desk, or on arrival for the first stage, and holds desks blocked because every open lane is full. `Runner.OpenLane` / `CloseLane` are the first manager actions: a closed lane drains.
 
+The `StaffingRule` (S8b) is checked after every event and every manager action: it opens a lane after a setup time (a `LaneReady` event) and closes one at once. Any manager open/close pins that lane until `ReturnToRule`. Breakdowns from the level's event deck pause a lane's checks (their old `EndService` events are ignored, like stale patience alarms), the router skips broken lanes, and a `Repair` event resumes them with the time left. Every lane change is logged with who caused it (`ByManager`), so a replay re-applies only the player's actions.
+
 ## The event loop
 
 ```
