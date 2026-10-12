@@ -85,9 +85,13 @@ namespace Throughput.Core.Levels
         /// <summary>A desk type name from the level.</summary>
         public string Type { get; set; }
 
+        /// <summary>Shared line: the number of desks. Lanes: how many lanes are open at the start (the first ones, N8).</summary>
         public int Staff { get; set; }
 
-        /// <summary>Waiting-area size in people; null = unlimited. Must be null for the first stage (L6).</summary>
+        /// <summary>Separate lanes (N1, N8): this many lanes, each with one desk and its own line. Null = one shared line.</summary>
+        public int? Lanes { get; set; }
+
+        /// <summary>Waiting-area size in people (per lane, with lanes); null = unlimited. Must be null for the first stage (L6).</summary>
         public int? LineCapacity { get; set; }
 
         /// <summary>Walk time to the next stage, in minutes. Ignored for the last stage.</summary>

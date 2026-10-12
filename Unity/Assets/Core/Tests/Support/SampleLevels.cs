@@ -24,5 +24,13 @@ namespace Throughput.Core.Tests.Support
     { ""type"": ""scanner"", ""staff"": 2, ""lineCapacity"": 12 }
   ]
 }";
+
+        /// <summary>The scanner as 3 separate lanes, 2 open at the start, 4 places in each line.</summary>
+        public const string LanesPlan = @"{
+  ""stages"": [
+    { ""type"": ""id"",      ""staff"": 3, ""walkToNext"": 0.5 },
+    { ""type"": ""scanner"", ""staff"": 2, ""lanes"": 3, ""lineCapacity"": 4 }
+  ]
+}";
     }
 }

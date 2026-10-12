@@ -4,6 +4,7 @@ using System.Linq;
 using Throughput.Core.Engine.Behaviours;
 using Throughput.Core.Engine.Events;
 using Throughput.Core.Engine.Network;
+using Throughput.Core.Engine.Policies;
 using Throughput.Core.Engine.Randomness;
 using Throughput.Core.Levels;
 
@@ -24,23 +25,31 @@ namespace Throughput.Core.Layout
     /// <summary>A built network, ready to run.</summary>
     public sealed class CompiledRun
     {
-        internal CompiledRun(Runner runner, IReadOnlyList<Station> stations)
+        internal CompiledRun(Runner runner, IReadOnlyList<Router> stages)
         {
             Runner = runner;
-            Stations = stations;
-            StaffByStation = stations.ToDictionary(s => s.Name, s => s.Staff);
-            LineCapacity = stations.Where(s => s.LineCapacity != int.MaxValue).ToDictionary(s => s.Name, s => s.LineCapacity);
+            Stages = stages;
+            Stations = stages.SelectMany(s => s.Lanes).ToList();
+            StaffByStation = Stations.ToDictionary(s => s.Name, s => s.Staff);
+            LineCapacity = Stations.Where(s => s.LineCapacity != int.MaxValue).ToDictionary(s => s.Name, s => s.LineCapacity);
         }
 
         public Runner Runner { get; }
 
-        /// <summary>First to last.</summary>
+        /// <summary>First to last; each has one lane (a shared line) or several.</summary>
+        public IReadOnlyList<Router> Stages { get; }
+
+        /// <summary>Every station (lane), first stage to last.</summary>
         public IReadOnlyList<Station> Stations { get; }
 
         public IReadOnlyDictionary<string, int> StaffByStation { get; }
 
         /// <summary>Only the limited waiting areas.</summary>
         public IReadOnlyDictionary<string, int> LineCapacity { get; }
+
+        /// <summary>A station by name, e.g. "scanner 2", for manager actions.</summary>
+        public Station Lane(string name) =>
+            Stations.FirstOrDefault(s => s.Name == name) ?? throw new ArgumentException($"There is no lane '{name}'.", nameof(name));
     }
 
     /// <summary>Level + plan → network (L1, L2). Checks everything first and reports all problems at once.</summary>
@@ -52,23 +61,40 @@ namespace Throughput.Core.Layout
             if (problems.Count > 0) throw new PlanException(problems);
 
             var streams = new RngStreams(runSeed);
-            var stations = new List<Station>();
-            foreach (PlannedStage ps in plan.Stages)
+            var stages = new List<Router>();
+            for (int i = 0; i < plan.Stages.Count; i++)
             {
+                PlannedStage ps = plan.Stages[i];
                 StageTypeDef type = level.Stages.First(t => t.Name == ps.Type);
-                var station = new Station(type.Name, ps.Staff, type.Service.Build(), streams.Get("service:" + type.Name),
-                    ps.LineCapacity ?? int.MaxValue);
-                if (stations.Count > 0)
-                    stations[stations.Count - 1].ConnectTo(station, plan.Stages[stations.Count - 1].WalkToNext);
-                stations.Add(station);
+                int capacity = ps.LineCapacity ?? int.MaxValue;
+                var lanes = new List<Station>();
+                if (ps.Lanes == null)
+                {
+                    lanes.Add(new Station(type.Name, ps.Staff, type.Service.Build(), streams.Get("service:" + type.Name), capacity));
+                }
+                else
+                {
+                    for (int n = 1; n <= ps.Lanes.Value; n++)
+                    {
+                        string name = $"{type.Name} {n}";
+                        var lane = new Station(name, 1, type.Service.Build(), streams.Get("service:" + name), capacity);
+                        if (n > ps.Staff) lane.SetOpen(false); // staff open the first lanes; the rest wait closed (N8)
+                        lanes.Add(lane);
+                    }
+                }
+                var stage = new Router(type.Name, lanes, ShortestLine.Instance);
+                if (stages.Count > 0)
+                    foreach (Station previous in stages[stages.Count - 1].Lanes)
+                        previous.ConnectTo(stage, plan.Stages[i - 1].WalkToNext);
+                stages.Add(stage);
             }
 
             Wave[] waves = level.Waves.Select(w => new Wave(w.Start, w.End, w.PerMinute)).ToArray();
-            var source = new Source("entry", new ArrivalWaves(waves, streams.Get("arrivals:entry")), stations[0]);
+            var source = new Source("entry", new ArrivalWaves(waves, streams.Get("arrivals:entry")), stages[0]);
             var runner = new Runner(source);
             if (level.Patience != null)
                 runner.AddBehaviour(new Reneging(level.Patience.Build(), streams));
-            return new CompiledRun(runner, stations);
+            return new CompiledRun(runner, stages);
         }
 
         public static IReadOnlyList<string> Check(LevelDef level, PlanDef plan)
@@ -154,8 +180,20 @@ namespace Throughput.Core.Layout
                 }
                 if (!used.Add(ps.Type))
                     problems.Add($"Stage {i + 1}: {name} is used twice (one stage per desk type until lanes arrive).");
-                if (ps.Staff < 1 || ps.Staff > type.MaxStaff)
-                    problems.Add($"Stage {i + 1} {name}: {ps.Staff} staff (this level allows 1 to {type.MaxStaff}).");
+                if (ps.Lanes == null)
+                {
+                    if (ps.Staff < 1 || ps.Staff > type.MaxStaff)
+                        problems.Add($"Stage {i + 1} {name}: {ps.Staff} staff (this level allows 1 to {type.MaxStaff}).");
+                }
+                else if (ps.Lanes.Value < 1)
+                    problems.Add($"Stage {i + 1} {name}: needs at least 1 lane.");
+                else
+                {
+                    if (ps.Lanes.Value > type.MaxStaff)
+                        problems.Add($"Stage {i + 1} {name}: {ps.Lanes.Value} lanes (this level allows up to {type.MaxStaff}).");
+                    if (ps.Staff < 1 || ps.Staff > ps.Lanes.Value)
+                        problems.Add($"Stage {i + 1} {name}: {ps.Staff} staff for {ps.Lanes.Value} lanes (each open lane needs 1; at least 1 open).");
+                }
                 if (i == 0 && ps.LineCapacity.HasValue)
                     problems.Add($"Stage 1 {name}: the first waiting area has no size (people wait in the hall).");
                 if (i > 0 && ps.LineCapacity.HasValue)
@@ -163,7 +201,7 @@ namespace Throughput.Core.Layout
                     if (ps.LineCapacity.Value < 1)
                         problems.Add($"Stage {i + 1} {name}: the waiting area must hold at least 1 person.");
                     else
-                        space += ps.LineCapacity.Value;
+                        space += ps.LineCapacity.Value * Math.Max(1, ps.Lanes ?? 1);
                 }
                 if (!(ps.WalkToNext >= 0) || double.IsInfinity(ps.WalkToNext))
                     problems.Add($"Stage {i + 1} {name}: walk time must be 0 or more ({ps.WalkToNext}).");

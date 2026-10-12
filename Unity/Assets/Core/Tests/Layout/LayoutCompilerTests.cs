@@ -1,5 +1,8 @@
+using System;
+using System.Collections.Generic;
 using System.Linq;
 using NUnit.Framework;
+using Throughput.Core.Engine.Network;
 using Throughput.Core.Layout;
 using Throughput.Core.Levels;
 using Throughput.Core.Results;
@@ -112,5 +115,85 @@ namespace Throughput.Core.Tests.Layout
             var e = Assert.Throws<PlanException>(() => LayoutCompiler.Compile(level, LevelJson.ReadPlan(SampleLevels.Plan), 1UL));
             StringAssert.Contains("Wave", string.Join("\n", e.Problems));
         }
+
+        [Test]
+        public void Compile_Lanes_OneStationPerLane()
+        {
+            CompiledRun run = LayoutCompiler.Compile(Level, LevelJson.ReadPlan(SampleLevels.LanesPlan), runSeed: 7UL);
+
+            Assert.That(run.Stations.Select(s => s.Name), Is.EqualTo(new[] { "id", "scanner 1", "scanner 2", "scanner 3" }));
+            Assert.That(run.Stages.Select(s => s.Name), Is.EqualTo(new[] { "id", "scanner" }));
+            Assert.That(run.Stages[1].Lanes.Select(s => s.Name), Is.EqualTo(new[] { "scanner 1", "scanner 2", "scanner 3" }));
+            Assert.That(run.Stations.Select(s => s.IsOpen), Is.EqualTo(new[] { true, true, true, false }));
+            Assert.That(run.Stations.Skip(1).Select(s => s.Staff), Is.All.EqualTo(1));
+            Assert.That(run.Stations[0].Next, Is.SameAs(run.Stages[1]));
+            Assert.That(run.LineCapacity, Is.EqualTo(new Dictionary<string, int> { { "scanner 1", 4 }, { "scanner 2", 4 }, { "scanner 3", 4 } }));
+            Assert.That(run.Lane("scanner 3"), Is.SameAs(run.Stations[3]));
+            Assert.Throws<System.ArgumentException>(() => run.Lane("xray"));
+        }
+
+        [Test]
+        public void Compile_Lanes_RunsToTheEnd()
+        {
+            CompiledRun run = LayoutCompiler.Compile(Level, LevelJson.ReadPlan(SampleLevels.LanesPlan), runSeed: 7UL);
+            var log = new RunLog();
+            run.Runner.AddObserver(log);
+            run.Runner.Run();
+
+            Assert.That(run.Runner.IsFinished, Is.True);
+            Assert.That(log.Passengers.SelectMany(p => p.Visits).Any(v => v.Station == "scanner 3"), Is.False, "scanner 3 is closed");
+            InvariantChecker.AssertAll(log, run.StaffByStation, lineCapacity: run.LineCapacity);
+        }
+
+        [Test]
+        public void Check_LaneRules()
+        {
+            var plan = new PlanDef();
+            plan.Stages.Add(new PlannedStage { Type = "id", Staff = 1, Lanes = 0 });                       // at least 1 lane
+            plan.Stages.Add(new PlannedStage { Type = "scanner", Staff = 3, Lanes = 2, LineCapacity = 8 }); // 3 staff for 2 lanes
+            string all = string.Join("\n", LayoutCompiler.Check(Level, plan));
+            StringAssert.Contains("Stage 1 'id': needs at least 1 lane", all);
+            StringAssert.Contains("Stage 2 'scanner': 3 staff for 2 lanes", all);
+
+            plan.Stages[0].Lanes = 5;                                     // id allows 4 desks
+            plan.Stages[1] = new PlannedStage { Type = "scanner", Staff = 1, Lanes = 3, LineCapacity = 8 }; // 3 × 8 = 24 > 20 space
+            all = string.Join("\n", LayoutCompiler.Check(Level, plan));
+            StringAssert.Contains("Stage 1 'id': 5 lanes (this level allows up to 4)", all);
+            StringAssert.Contains("use 24 places", all);
+        }
+
+        [Test]
+        public void ManagerAction_ChangesOnlyWhatItAffects()
+        {
+            // Same seed, with and without opening scanner 3 at minute 20.
+            RunLog Once(bool act)
+            {
+                CompiledRun run = LayoutCompiler.Compile(Level, LevelJson.ReadPlan(SampleLevels.LanesPlan), runSeed: 11UL);
+                var log = new RunLog();
+                run.Runner.AddObserver(log);
+                run.Runner.Run(20.0);
+                if (act) run.Runner.OpenLane(run.Lane("scanner 3"));
+                run.Runner.Run();
+                return log;
+            }
+            RunLog without = Once(false), with = Once(true), again = Once(true);
+
+            Assert.That(again.Entries.Select(e => e.ToString()), Is.EqualTo(with.Entries.Select(e => e.ToString())), "same actions, same run");
+            Assert.That(with.Entries.TakeWhile(e => e.Time < 20.0).Select(e => e.ToString()),
+                Is.EqualTo(without.Entries.TakeWhile(e => e.Time < 20.0).Select(e => e.ToString())), "nothing before the action changes");
+            Assert.That(with.Passengers.Select(p => p.Arrive), Is.EqualTo(without.Passengers.Select(p => p.Arrive)), "arrivals don't change");
+            // The k-th ID check always draws the k-th number from "service:id", whoever it is (people giving up
+            // at the ID line can differ between runs), so the ID desk times in start order must match.
+            double[] withId = IdDeskTimes(with), withoutId = IdDeskTimes(without);
+            int n = Math.Min(withId.Length, withoutId.Length);
+            Assert.That(withId.Take(n), Is.EqualTo(withoutId.Take(n)), "ID desk times don't change");
+            Assert.That(with.Passengers.SelectMany(p => p.Visits).Any(v => v.Station == "scanner 3"), Is.True, "the action did something");
+        }
+
+        private static double[] IdDeskTimes(RunLog log) =>
+            log.Entries.Where(e => e.Kind == LogKind.StartService && e.Station == "id")
+                .Select(e => log.Passengers[e.PassengerId].Visits[0])
+                .Select(v => v.ServiceEnd - v.ServiceStart)
+                .ToArray();
     }
 }
