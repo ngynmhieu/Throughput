@@ -66,18 +66,24 @@ namespace Throughput.Core.Results
         private readonly List<Desk> _order = new List<Desk>();
         private readonly Dictionary<int, double> _joined = new Dictionary<int, double>();
         private readonly Dictionary<int, double> _waited = new Dictionary<int, double>();
+        private readonly HashSet<int> _inLine = new HashSet<int>();
+        private readonly double _startTime;
         private int _arrived;
         private int _exited;
         private int _missed;
 
-        public RunStats(IEnumerable<Station> stations)
+        /// <param name="startTime">When it starts watching: 0, or runner.Now if attached during a run.</param>
+        public RunStats(IEnumerable<Station> stations, double startTime = 0.0)
         {
+            if (!(startTime >= 0) || double.IsInfinity(startTime))
+                throw new ArgumentOutOfRangeException(nameof(startTime), startTime, "Start time must be 0 or more.");
             if (stations == null) throw new ArgumentNullException(nameof(stations));
+            _startTime = startTime;
             foreach (Station station in stations)
             {
                 if (station == null) throw new ArgumentException("Stations can't be null.", nameof(stations));
                 if (_desks.ContainsKey(station)) continue;
-                var desk = new Desk { Station = station, Staffed = IsStaffed(station), Busy = station.Busy };
+                var desk = new Desk { Station = station, Since = startTime, Staffed = IsStaffed(station), Busy = station.Busy };
                 _desks[station] = desk;
                 _order.Add(desk);
             }
@@ -88,6 +94,7 @@ namespace Throughput.Core.Results
         public void OnJoinQueue(double time, Station station, Passenger passenger)
         {
             _joined[passenger.Id] = time;
+            _inLine.Add(passenger.Id);
             Update(time, station);
         }
 
@@ -129,8 +136,15 @@ namespace Throughput.Core.Results
                 busyShare[d.Station.Name] = staffed > 0 ? busy / staffed : 0.0;
             }
 
+            // People still in line at `end` (a mid-run summary) count with their wait so far.
+            var waits = new Dictionary<int, double>(_waited);
+            foreach (int id in _inLine)
+            {
+                waits.TryGetValue(id, out double sum);
+                waits[id] = sum + (end - JoinedAt(id));
+            }
             double total = 0.0, longest = 0.0;
-            foreach (double w in _waited.Values)
+            foreach (double w in waits.Values)
             {
                 total += w;
                 if (w > longest) longest = w;
@@ -145,8 +159,12 @@ namespace Throughput.Core.Results
         private void AddWait(Passenger passenger, double time)
         {
             _waited.TryGetValue(passenger.Id, out double sum);
-            _waited[passenger.Id] = sum + (time - _joined[passenger.Id]);
+            _waited[passenger.Id] = sum + (time - JoinedAt(passenger.Id));
+            _inLine.Remove(passenger.Id);
         }
+
+        /// <summary>When they joined their current line; people already in line when watching began count from then.</summary>
+        private double JoinedAt(int id) => _joined.TryGetValue(id, out double t) ? t : _startTime;
 
         /// <summary>Adds the time since the last change at its old state, then reads the new state.</summary>
         private void Update(double time, Station station)

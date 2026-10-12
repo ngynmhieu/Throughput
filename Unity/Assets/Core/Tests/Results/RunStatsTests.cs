@@ -96,5 +96,53 @@ namespace Throughput.Core.Tests.Results
             Assert.Throws<System.ArgumentOutOfRangeException>(() => stats2.Summarize(50.0)); // the last change was at 100
             Assert.Throws<System.ArgumentNullException>(() => new RunStats(null));
         }
+
+        [Test]
+        public void Stats_DeckEventsAfterTheEnd_DontBreakTheSummary()
+        {
+            // One person, 0–100. A breakdown at 150 comes after everyone left: the run ends at 100 and costs 100.
+            Station s1 = Desk("s1");
+            var stage = new Router("scan", new[] { s1 }, ShortestLine.Instance);
+            var runner = new Runner(new Source("entry", new FixedArrivals(0.0), stage));
+            runner.AddBreakdown(stage, 150.0, new Deterministic(10.0), new Pcg32(1UL, 1UL));
+            var stats = new RunStats(new[] { s1 });
+            runner.AddObserver(stats);
+            runner.Run();
+            RunSummary s = stats.Summarize(runner.LastActiveTime);
+
+            Assert.That(s.End, Is.EqualTo(100.0));
+            Assert.That(s.StaffMinutes, Is.EqualTo(100.0));
+        }
+
+        [Test]
+        public void Stats_MidRun_CountsPeopleStillWaiting()
+        {
+            // One desk, 100 s. A and B at 0. At 60, B has waited 60 so far.
+            Station s1 = Desk("s1");
+            var runner = new Runner(new Source("entry", new FixedArrivals(0.0, 0.0), s1));
+            var stats = new RunStats(new[] { s1 });
+            runner.AddObserver(stats);
+            runner.Run(60.0);
+            RunSummary s = stats.Summarize(60.0);
+
+            Assert.That(s.LongestWait, Is.EqualTo(60.0));
+            Assert.That(s.AverageWait, Is.EqualTo(30.0));
+        }
+
+        [Test]
+        public void Stats_AttachedLate_CountsFromThen()
+        {
+            // One desk, 100 s, A and B at 0 (busy 0–200). Stats attached at 50 see 150 staffed and busy minutes.
+            Station s1 = Desk("s1");
+            var runner = new Runner(new Source("entry", new FixedArrivals(0.0, 0.0), s1));
+            runner.Run(50.0);
+            var stats = new RunStats(new[] { s1 }, startTime: runner.Now);
+            runner.AddObserver(stats);
+            runner.Run();
+            RunSummary s = stats.Summarize(runner.LastActiveTime);
+
+            Assert.That(s.StaffMinutes, Is.EqualTo(150.0));
+            Assert.That(s.BusyShare["s1"], Is.EqualTo(1.0));
+        }
     }
 }

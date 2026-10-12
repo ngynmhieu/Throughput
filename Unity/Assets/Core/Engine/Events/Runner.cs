@@ -148,7 +148,9 @@ namespace Throughput.Core.Engine.Events
                     Schedule(breakdown.Time, EventType.Breakdown, breakdown, null);
             }
 
-            while (_events.Count > 0 && _events.Peek().Time <= until)
+            // Once nobody is inside and no arrivals are left, deck events (a late breakdown, repair or setup) are not
+            // part of the run: stop before them, so the run ends at its real end for everyone watching.
+            while (_events.Count > 0 && !IsFinished && _events.Peek().Time <= until)
             {
                 EngineEvent e = _events.Pop();
                 Now = e.Time;

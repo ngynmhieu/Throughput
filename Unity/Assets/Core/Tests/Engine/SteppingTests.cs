@@ -62,12 +62,13 @@ namespace Throughput.Core.Tests.Engine
         public void LastActiveTime_IgnoresDeadPatienceAlarms()
         {
             // 1 desk, 300 s each, patience 1000 s. A at 0, B at 50. Both are served: A 0–300, B 300–600.
-            // Their alarms (1000 and 1050) fire later and do nothing: Now ends at 1050, the run really ended at 600.
+            // Their alarms (1000 and 1050) would do nothing: once everyone is out the run stops (S9 review), so Now
+            // and LastActiveTime both end at 600.
             var (runner, _) = Build(300.0, 0.0, 50.0);
             runner.AddBehaviour(new Reneging(new Deterministic(1000.0), new Pcg32(1UL, 3UL)));
             runner.Run();
 
-            Assert.That(runner.Now, Is.EqualTo(1050.0));
+            Assert.That(runner.Now, Is.EqualTo(600.0));
             Assert.That(runner.LastActiveTime, Is.EqualTo(600.0));
             Assert.That(runner.IsFinished, Is.True);
         }
